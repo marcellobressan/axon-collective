@@ -90,7 +90,7 @@ const useWheelStore = create<RFState>()(
     setEdges: (edges) => set({ edges }),
     onNodesChange: (changes) => {
       set((state) => {
-        state.nodes = applyNodeChanges(changes, state.nodes);
+        state.nodes = applyNodeChanges(changes, state.nodes) as WheelNode[];
       });
     },
     onEdgesChange: (changes) => {

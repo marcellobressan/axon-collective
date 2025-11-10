@@ -13,7 +13,7 @@ import {
 import { Save, Share2, LayoutPanelLeft, Download, Trash2, Palette } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { useHotkeys } from 'react-hotkeys-hook';
-import { toPng, toSvg } from '@xyflow/html-to-image';
+import { toPng, toSvg } from 'html-to-image';
 import useWheelStore from '@/store/wheelStore';
 import CustomNode from './CustomNode';
 import { Button } from '@/components/ui/button';
