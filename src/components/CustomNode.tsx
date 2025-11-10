@@ -49,15 +49,13 @@ function CustomNode({ id, data, selected }: NodeProps<WheelNode>) {
   }, [isEditing]);
   // Effect to handle external label changes and trigger pulse
   useEffect(() => {
-    if (label !== data.label) {
-      if (!isEditing) {
-        setLabel(data.label);
-        setIsPulsing(true);
-        const timer = setTimeout(() => setIsPulsing(false), 1000);
-        return () => clearTimeout(timer);
-      }
+    if (data.label !== label && !isEditing) {
+      setLabel(data.label);
+      setIsPulsing(true);
+      const timer = setTimeout(() => setIsPulsing(false), 1000);
+      return () => clearTimeout(timer);
     }
-  }, [data.label]);
+  }, [data.label, isEditing, label]);
   // Effect to handle auto-focusing new nodes
   useEffect(() => {
     if (nodeToFocus === id) {
