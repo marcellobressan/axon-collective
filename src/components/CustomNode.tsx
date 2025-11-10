@@ -10,17 +10,19 @@ function CustomNode({ id, data, selected }: NodeProps<WheelNode>) {
   const addNode = useWheelStore(s => s.addNode);
   const nodeToFocus = useWheelStore(s => s.nodeToFocus);
   const setNodeToFocus = useWheelStore(s => s.setNodeToFocus);
-  const [isEditing, setIsEditing] = useState(false);
+  const editingNodeId = useWheelStore(s => s.editingNodeId);
+  const setEditingNodeId = useWheelStore(s => s.setEditingNodeId);
+  const isEditing = editingNodeId === id;
   const [label, setLabel] = useState(data.label);
   const [isPulsing, setIsPulsing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { getNode } = useReactFlow();
   const handleDoubleClick = () => {
     if (data.tier > 3) return;
-    setIsEditing(true);
+    setEditingNodeId(id);
   };
   const handleBlur = () => {
-    setIsEditing(false);
+    setEditingNodeId(null);
     updateNodeLabel(id, label);
   };
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -30,7 +32,7 @@ function CustomNode({ id, data, selected }: NodeProps<WheelNode>) {
     }
     if (e.key === 'Escape') {
       setLabel(data.label);
-      setIsEditing(false);
+      setEditingNodeId(null);
     }
   };
   const handleAddNode = useCallback(() => {
@@ -59,10 +61,10 @@ function CustomNode({ id, data, selected }: NodeProps<WheelNode>) {
   // Effect to handle auto-focusing new nodes
   useEffect(() => {
     if (nodeToFocus === id) {
-      setIsEditing(true);
+      setEditingNodeId(id);
       setNodeToFocus(null); // Consume the focus event
     }
-  }, [id, nodeToFocus, setNodeToFocus]);
+  }, [id, nodeToFocus, setNodeToFocus, setEditingNodeId]);
   const nodeColor = data.color || '#6b7280'; // Default to gray
   return (
     <motion.div

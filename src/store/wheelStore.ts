@@ -18,6 +18,7 @@ export type RFState = {
   isLoading: boolean;
   error: string | null;
   nodeToFocus: string | null;
+  editingNodeId: string | null;
   past: HistoryState[];
   future: HistoryState[];
   fetchWheel: (id: string) => Promise<void>;
@@ -34,6 +35,7 @@ export type RFState = {
   resetLayout: () => void;
   updateTitle: (newTitle: string) => void;
   setNodeToFocus: (nodeId: string | null) => void;
+  setEditingNodeId: (nodeId: string | null) => void;
   undo: () => void;
   redo: () => void;
 };
@@ -55,6 +57,7 @@ const useWheelStore = create<RFState>()(
       isLoading: true,
       error: null,
       nodeToFocus: null,
+      editingNodeId: null,
       past: [],
       future: [],
       fetchWheel: async (id) => {
@@ -107,6 +110,17 @@ const useWheelStore = create<RFState>()(
         if (!isDrag) takeSnapshot();
         set((state) => {
           state.nodes = applyNodeChanges(changes, state.nodes) as WheelNode[];
+          if (state.editingNodeId) {
+            const deselectionChange = changes.find(
+              (change) =>
+                change.type === 'select' &&
+                change.id === state.editingNodeId &&
+                !change.selected
+            );
+            if (deselectionChange) {
+              state.editingNodeId = null;
+            }
+          }
         });
       },
       onEdgesChange: (changes) => {
@@ -197,6 +211,9 @@ const useWheelStore = create<RFState>()(
       },
       setNodeToFocus: (nodeId) => {
         set({ nodeToFocus: nodeId });
+      },
+      setEditingNodeId: (nodeId) => {
+        set({ editingNodeId: nodeId });
       },
       undo: () => {
         set(state => {
