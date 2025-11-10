@@ -4,14 +4,8 @@ import { PlusCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import useWheelStore from '@/store/wheelStore';
-import type { WheelNodeData } from '@shared/types';
-const tierColors = [
-  'bg-indigo-500 border-indigo-600', // Tier 0 (Central)
-  'bg-sky-500 border-sky-600',       // Tier 1
-  'bg-teal-500 border-teal-600',     // Tier 2
-  'bg-amber-500 border-amber-600',   // Tier 3
-];
-function CustomNode({ id, data, selected }: NodeProps<WheelNodeData>) {
+import type { WheelNodeData, WheelNode } from '@shared/types';
+function CustomNode({ id, data, selected }: NodeProps<WheelNode>) {
   const { updateNodeLabel, addNode } = useWheelStore.getState();
   const [isEditing, setIsEditing] = useState(false);
   const [label, setLabel] = useState(data.label);
@@ -39,7 +33,7 @@ function CustomNode({ id, data, selected }: NodeProps<WheelNodeData>) {
   const handleAddNode = useCallback(() => {
     const thisNode = getNode(id);
     if (thisNode) {
-      addNode(thisNode as Node<WheelNodeData>);
+      addNode(thisNode as WheelNode);
     }
   }, [id, getNode, addNode]);
   useEffect(() => {
@@ -59,15 +53,15 @@ function CustomNode({ id, data, selected }: NodeProps<WheelNodeData>) {
       }
     }
   }, [data.label, isEditing, label]);
-  const colorClass = tierColors[data.tier] || 'bg-gray-500 border-gray-600';
+  const nodeColor = data.color || '#6b7280'; // Default to gray
   return (
     <motion.div
       initial={{ scale: 0.8, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
       transition={{ duration: 0.2 }}
+      style={{ backgroundColor: nodeColor, borderColor: nodeColor }}
       className={cn(
-        'group relative w-40 h-[60px] rounded-lg shadow-md hover:shadow-xl transition-shadow duration-200 text-white flex items-center justify-center p-2 text-center',
-        colorClass,
+        'group relative w-40 h-[60px] rounded-lg shadow-md hover:shadow-xl transition-shadow duration-200 text-white flex items-center justify-center p-2 text-center border-2',
         selected && 'ring-2 ring-offset-2 ring-yellow-400',
         isPulsing && 'animate-pulse'
       )}

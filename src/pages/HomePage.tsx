@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, BrainCircuit } from 'lucide-react';
+import { Plus, BrainCircuit, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -18,6 +19,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -29,7 +40,9 @@ export function HomePage() {
   const [wheels, setWheels] = useState<Wheel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [newWheelTitle, setNewWheelTitle] = useState('');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [wheelToDelete, setWheelToDelete] = useState<Wheel | null>(null);
   const navigate = useNavigate();
   useEffect(() => {
     const fetchWheels = async () => {
@@ -59,11 +72,29 @@ export function HomePage() {
       toast.success(`Wheel "${newWheel.title}" created!`);
       setWheels((prev) => [...prev, newWheel]);
       setNewWheelTitle('');
-      setIsDialogOpen(false);
+      setIsCreateDialogOpen(false);
       navigate(`/wheel/${newWheel.id}`);
     } catch (error) {
       console.error('Failed to create wheel:', error);
       toast.error('Failed to create wheel. Please try again.');
+    }
+  };
+  const confirmDelete = (wheel: Wheel) => {
+    setWheelToDelete(wheel);
+    setIsDeleteDialogOpen(true);
+  };
+  const handleDeleteWheel = async () => {
+    if (!wheelToDelete) return;
+    try {
+      await api(`/api/wheels/${wheelToDelete.id}`, { method: 'DELETE' });
+      toast.success(`Wheel "${wheelToDelete.title}" has been deleted.`);
+      setWheels(wheels.filter(w => w.id !== wheelToDelete.id));
+    } catch (error) {
+      console.error('Failed to delete wheel:', error);
+      toast.error('Failed to delete wheel. Please try again.');
+    } finally {
+      setIsDeleteDialogOpen(false);
+      setWheelToDelete(null);
     }
   };
   return (
@@ -84,7 +115,7 @@ export function HomePage() {
           </header>
           <div className="flex justify-between items-center mb-8">
             <h2 className="text-2xl font-semibold">Your Wheels</h2>
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="mr-2 h-4 w-4" /> Create New Wheel
@@ -136,8 +167,8 @@ export function HomePage() {
           ) : wheels.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {wheels.map((wheel) => (
-                <Link to={`/wheel/${wheel.id}`} key={wheel.id}>
-                  <Card className="h-full hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
+                <Card key={wheel.id} className="flex flex-col justify-between hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
+                  <Link to={`/wheel/${wheel.id}`} className="flex-grow">
                     <CardHeader>
                       <CardTitle className="truncate">{wheel.title}</CardTitle>
                       <CardDescription>
@@ -147,8 +178,13 @@ export function HomePage() {
                     <CardContent>
                       <p className="text-sm text-muted-foreground">Click to open and edit this wheel.</p>
                     </CardContent>
-                  </Card>
-                </Link>
+                  </Link>
+                  <CardFooter className="p-4">
+                    <Button variant="ghost" size="icon" className="ml-auto text-muted-foreground hover:text-destructive" onClick={(e) => { e.preventDefault(); confirmDelete(wheel); }}>
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </CardFooter>
+                </Card>
               ))}
             </div>
           ) : (
@@ -162,8 +198,22 @@ export function HomePage() {
         </div>
       </div>
       <footer className="text-center py-8 text-muted-foreground text-sm">
-        <p>Built with ��️ at Cloudflare</p>
+        <p>Built with ❤️ at Cloudflare</p>
       </footer>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the wheel "{wheelToDelete?.title}" and all of its data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteWheel} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <Toaster richColors />
     </div>
   );

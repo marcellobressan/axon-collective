@@ -16,7 +16,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     const centralNode = {
       id: '0',
       type: 'custom',
-      data: { label: title, tier: 0 },
+      data: { label: title, tier: 0, color: '#4f46e5' }, // Indigo-600
       position: { x: 0, y: 0 },
     };
     const newWheel: Wheel = {
@@ -41,6 +41,12 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     if (!(await wheel.exists())) return notFound(c, 'Wheel not found');
     await wheel.patch(wheelData);
     return ok(c, await wheel.getState());
+  });
+  app.delete('/api/wheels/:id', async (c) => {
+    const { id } = c.req.param();
+    const deleted = await WheelEntity.delete(c.env, id);
+    if (!deleted) return notFound(c, 'Wheel not found');
+    return ok(c, { id, deleted });
   });
   // USERS
   app.get('/api/users', async (c) => {

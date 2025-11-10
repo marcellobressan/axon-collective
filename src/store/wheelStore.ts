@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import type { Wheel, WheelNode, WheelEdge, StoredNode } from '@shared/types';
+import type { Wheel, WheelNode, WheelEdge } from '@shared/types';
 import type { Connection, EdgeChange, NodeChange, Viewport } from '@xyflow/react';
-import { addEdge, applyEdgeChanges, applyNodeChanges } from '@xyflow/react';
+import { addEdge, applyEdgeChanges, applyNodeChanges, getConnectedEdges } from '@xyflow/react';
 import { api } from '@/lib/api-client';
 import { treeLayout } from '@/lib/layout';
 export type RFState = {
@@ -20,10 +20,14 @@ export type RFState = {
   onEdgesChange: (changes: EdgeChange[]) => void;
   onConnect: (connection: Connection) => void;
   updateNodeLabel: (nodeId: string, label: string) => void;
+  updateNodeColor: (nodeId: string, color: string) => void;
+  deleteNode: (nodeId: string) => void;
   addNode: (sourceNode: WheelNode) => void;
   saveWheel: () => Promise<void>;
   resetLayout: () => void;
+  updateTitle: (newTitle: string) => void;
 };
+const tierColors = ['#3b82f6', '#0ea5e9', '#14b8a6', '#f59e0b']; // blue, sky, teal, amber
 const useWheelStore = create<RFState>()(
   immer((set, get) => ({
     wheelId: null,
@@ -107,13 +111,31 @@ const useWheelStore = create<RFState>()(
         }
       });
     },
+    updateNodeColor: (nodeId, color) => {
+      set((state) => {
+        const node = state.nodes.find((n) => n.id === nodeId);
+        if (node) {
+          node.data.color = color;
+        }
+      });
+    },
+    deleteNode: (nodeId) => {
+      set((state) => {
+        const nodeToDelete = state.nodes.find(n => n.id === nodeId);
+        if (!nodeToDelete || nodeToDelete.data.tier === 0) return; // Cannot delete central node
+        const connectedEdges = getConnectedEdges([nodeToDelete], state.edges);
+        const edgeIdsToRemove = new Set(connectedEdges.map(e => e.id));
+        state.edges = state.edges.filter(e => !edgeIdsToRemove.has(e.id));
+        state.nodes = state.nodes.filter(n => n.id !== nodeId);
+      });
+    },
     addNode: (sourceNode) => {
       const newTier = sourceNode.data.tier + 1;
       if (newTier > 3) return; // Limit to 3rd order consequences
       const newNode: WheelNode = {
         id: crypto.randomUUID(),
         type: 'custom',
-        data: { label: 'New Consequence', tier: newTier },
+        data: { label: 'New Consequence', tier: newTier, color: tierColors[newTier] || '#6b7280' },
         position: { x: sourceNode.position.x, y: sourceNode.position.y + 150 },
         width: 160,
         height: 60,
@@ -146,6 +168,9 @@ const useWheelStore = create<RFState>()(
         const { nodes, edges } = get();
         const layoutResult = treeLayout(nodes, edges);
         set({ nodes: layoutResult.nodes, edges: layoutResult.edges });
+    },
+    updateTitle: (newTitle: string) => {
+      set({ title: newTitle });
     }
   }))
 );

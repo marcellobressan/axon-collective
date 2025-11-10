@@ -24,6 +24,7 @@ export interface ChatMessage {
 export interface WheelNodeData extends Record<string, unknown> {
   label: string;
   tier: number; // 0 for central, 1 for first-order, etc.
+  color?: string;
 }
 // We use the @xyflow/react types directly in the frontend,
 // but define a compatible structure for the backend to avoid dependency issues.
@@ -43,5 +44,5 @@ export interface Wheel {
   edges: StoredEdge[];
 }
 // Frontend-specific types that extend the stored types
-export type WheelNode = Node<WheelNodeData>;
+export type WheelNode = Node<WheelNodeData, 'custom'>;
 export type WheelEdge = Edge;
