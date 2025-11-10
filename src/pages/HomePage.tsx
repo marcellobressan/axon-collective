@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus, BrainCircuit, Trash2 } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -49,7 +50,7 @@ export function HomePage() {
       try {
         setIsLoading(true);
         const data = await api<Wheel[]>('/api/wheels');
-        setWheels(data);
+        setWheels(data.sort((a, b) => (b.lastModified || 0) - (a.lastModified || 0)));
       } catch (error) {
         console.error('Failed to fetch wheels:', error);
         toast.error('Could not load your wheels. Please try again later.');
@@ -70,7 +71,7 @@ export function HomePage() {
         body: JSON.stringify({ title: newWheelTitle.trim() }),
       });
       toast.success(`Wheel "${newWheel.title}" created!`);
-      setWheels((prev) => [...prev, newWheel]);
+      setWheels((prev) => [newWheel, ...prev]);
       setNewWheelTitle('');
       setIsCreateDialogOpen(false);
       navigate(`/wheel/${newWheel.id}`);
@@ -168,18 +169,21 @@ export function HomePage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {wheels.map((wheel) => (
                 <Card key={wheel.id} className="flex flex-col justify-between hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
-                  <Link to={`/wheel/${wheel.id}`} className="flex-grow">
-                    <CardHeader>
+                  <Link to={`/wheel/${wheel.id}`} className="flex-grow flex flex-col">
+                    <CardHeader className="flex-grow">
                       <CardTitle className="truncate">{wheel.title}</CardTitle>
                       <CardDescription>
                         {wheel.nodes.length} nodes, {wheel.edges.length} connections
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-sm text-muted-foreground">Click to open and edit this wheel.</p>
+                      <p className="text-sm text-muted-foreground">
+                        {wheel.lastModified ? `Updated ${formatDistanceToNow(new Date(wheel.lastModified), { addSuffix: true })}` : 'Not yet modified'}
+                      </p>
                     </CardContent>
                   </Link>
-                  <CardFooter className="p-4">
+                  <CardFooter className="p-4 border-t mt-auto">
+                    <span className="text-xs text-muted-foreground">Click card to open</span>
                     <Button variant="ghost" size="icon" className="ml-auto text-muted-foreground hover:text-destructive" onClick={(e) => { e.preventDefault(); confirmDelete(wheel); }}>
                       <Trash2 className="w-4 h-4" />
                     </Button>

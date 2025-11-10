@@ -24,6 +24,7 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       title,
       nodes: [centralNode],
       edges: [],
+      lastModified: Date.now(),
     };
     const created = await WheelEntity.create(c.env, newWheel);
     return ok(c, created);
@@ -39,7 +40,8 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     const wheelData = (await c.req.json()) as Partial<Wheel>;
     const wheel = new WheelEntity(c.env, id);
     if (!(await wheel.exists())) return notFound(c, 'Wheel not found');
-    await wheel.patch(wheelData);
+    const dataToPatch = { ...wheelData, lastModified: Date.now() };
+    await wheel.patch(dataToPatch);
     return ok(c, await wheel.getState());
   });
   app.delete('/api/wheels/:id', async (c) => {

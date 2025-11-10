@@ -29,6 +29,7 @@ export type RFState = {
   onConnect: (connection: Connection) => void;
   updateNodeLabel: (nodeId: string, label: string) => void;
   updateNodeColor: (nodeId: string, color: string) => void;
+  updateEdgeLabel: (edgeId: string, label: string) => void;
   deleteNode: (nodeId: string) => void;
   addNode: (sourceNode: WheelNode) => void;
   saveWheel: () => Promise<void>;
@@ -133,7 +134,8 @@ const useWheelStore = create<RFState>()(
       onConnect: (connection) => {
         takeSnapshot();
         set((state) => {
-          state.edges = addEdge(connection, state.edges);
+          const newEdge = { ...connection, type: 'labeled', label: '' };
+          state.edges = addEdge(newEdge, state.edges);
         });
       },
       updateNodeLabel: (nodeId, label) => {
@@ -151,6 +153,15 @@ const useWheelStore = create<RFState>()(
           const node = state.nodes.find((n) => n.id === nodeId);
           if (node) {
             node.data.color = color;
+          }
+        });
+      },
+      updateEdgeLabel: (edgeId, label) => {
+        takeSnapshot();
+        set((state) => {
+          const edge = state.edges.find((e) => e.id === edgeId);
+          if (edge) {
+            edge.label = label;
           }
         });
       },
@@ -181,6 +192,8 @@ const useWheelStore = create<RFState>()(
           id: `e-${sourceNode.id}-${newNode.id}`,
           source: sourceNode.id,
           target: newNode.id,
+          type: 'labeled',
+          label: '',
         };
         const { nodes, edges } = radialLayout([...get().nodes, newNode], [...get().edges, newEdge]);
         set({ nodes, edges, nodeToFocus: newNode.id });
@@ -245,9 +258,12 @@ const useWheelStore = create<RFState>()(
           const nodesToSave = nodes.map(({ id, position, data, type, width, height, hidden }) => ({
             id, position, data, type, width, height, hidden
           }));
+          const edgesToSave = edges.map(({ id, source, target, type, label }) => ({
+            id, source, target, type, label
+          }));
           await api(`/api/wheels/${wheelId}`, {
             method: 'PUT',
-            body: JSON.stringify({ title, nodes: nodesToSave, edges }),
+            body: JSON.stringify({ title, nodes: nodesToSave, edges: edgesToSave }),
           });
         } catch (error) {
           console.error('Failed to save wheel:', error);
