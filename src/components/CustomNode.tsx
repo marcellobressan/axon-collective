@@ -55,7 +55,8 @@ function CustomNode({ id, data, selected }: NodeProps<WheelNode>) {
       const timer = setTimeout(() => setIsPulsing(false), 1000);
       return () => clearTimeout(timer);
     }
-  }, [data.label, label, isEditing]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.label]);
   // Effect to handle auto-focusing new nodes
   useEffect(() => {
     if (nodeToFocus === id) {
@@ -71,13 +72,13 @@ function CustomNode({ id, data, selected }: NodeProps<WheelNode>) {
       transition={{ duration: 0.2 }}
       style={{ backgroundColor: nodeColor, borderColor: nodeColor }}
       className={cn(
-        'group relative w-40 h-[60px] rounded-lg shadow-md hover:shadow-xl transition-shadow duration-200 text-white flex items-center justify-center p-2 text-center border-2',
-        selected && 'ring-2 ring-offset-2 ring-yellow-400',
+        'group relative w-36 h-36 rounded-full shadow-md hover:shadow-xl transition-shadow duration-200 text-white flex items-center justify-center p-4 text-center border-2',
+        selected && 'ring-4 ring-offset-2 ring-yellow-400',
         isPulsing && 'animate-pulse'
       )}
       onDoubleClick={handleDoubleClick}
     >
-      <Handle type="target" position={Position.Top} className="!bg-teal-500 w-3 h-3" />
+      <Handle type="target" position={Position.Top} className="!bg-teal-500 w-3 h-3 opacity-0" />
       {isEditing ? (
         <textarea
           ref={textareaRef}
@@ -85,12 +86,12 @@ function CustomNode({ id, data, selected }: NodeProps<WheelNode>) {
           onChange={(e) => setLabel(e.target.value)}
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
-          className="w-full h-full bg-transparent text-white text-center text-sm font-medium resize-none focus:outline-none"
+          className="w-full h-full bg-transparent text-white text-center text-sm font-medium resize-none focus:outline-none flex items-center justify-center"
         />
       ) : (
         <div className="text-sm font-medium break-words">{label}</div>
       )}
-      <Handle type="source" position={Position.Bottom} className="!bg-rose-500 w-3 h-3" />
+      <Handle type="source" position={Position.Bottom} className="!bg-rose-500 w-3 h-3 opacity-0" />
       {data.tier < 3 && (
         <button
           onClick={handleAddNode}

@@ -1,42 +1,44 @@
-import { hierarchy, tree } from 'd3-hierarchy';
 import type { WheelNode, WheelEdge } from '@shared/types';
-const NODE_WIDTH = 160;
-const NODE_HEIGHT = 60;
-const HORIZONTAL_SPACING = 50;
-const VERTICAL_SPACING = 80;
-export const treeLayout = (nodes: WheelNode[], edges: WheelEdge[]) => {
+export const TIER_RADII = [0, 250, 500, 750]; // Radii for tier 0, 1, 2, 3
+export const radialLayout = (nodes: WheelNode[], edges: WheelEdge[]): { nodes: WheelNode[], edges: WheelEdge[] } => {
   if (nodes.length <= 1) {
     return { nodes, edges };
   }
-  const root = nodes.find(n => n.data.tier === 0);
-  if (!root) {
-    console.error("Root node not found for layout");
-    return { nodes, edges };
-  }
-  const nodesById = new Map(nodes.map(n => [n.id, { ...n, children: [] as WheelNode[] }]));
-  for (const edge of edges) {
-    const source = nodesById.get(edge.source);
-    const target = nodesById.get(edge.target);
-    if (source && target) {
-      source.children.push(target);
+  const nodesByTier: Map<number, WheelNode[]> = new Map();
+  nodes.forEach(node => {
+    const tier = node.data.tier;
+    if (!nodesByTier.has(tier)) {
+      nodesByTier.set(tier, []);
     }
-  }
-  const hierarchyRoot = hierarchy(nodesById.get(root.id)!);
-  const treeLayout = tree<WheelNode>()
-    .nodeSize([NODE_WIDTH + HORIZONTAL_SPACING, NODE_HEIGHT + VERTICAL_SPACING])
-    .separation((a, b) => (a.parent === b.parent ? 1 : 1.25));
-  treeLayout(hierarchyRoot);
-  const newNodes: WheelNode[] = [];
-  hierarchyRoot.each(d3Node => {
-    const originalNode = nodes.find(n => n.id === d3Node.data.id);
-    if (originalNode) {
-      newNodes.push({
-        ...originalNode,
-        position: { x: d3Node.x, y: d3Node.y },
-        width: NODE_WIDTH,
-        height: NODE_HEIGHT,
-      });
-    }
+    nodesByTier.get(tier)!.push(node);
   });
-  return { nodes: newNodes, edges };
+  const layoutNodesMap = new Map<string, WheelNode>();
+  nodes.forEach(node => layoutNodesMap.set(node.id, { ...node }));
+  // Tier 0 (center)
+  const rootNode = nodesByTier.get(0)?.[0];
+  if (rootNode) {
+    const nodeToUpdate = layoutNodesMap.get(rootNode.id);
+    if (nodeToUpdate) {
+      nodeToUpdate.position = { x: 0, y: 0 };
+    }
+  }
+  // Other tiers
+  for (let tier = 1; tier < TIER_RADII.length; tier++) {
+    const tierNodes = nodesByTier.get(tier) || [];
+    const count = tierNodes.length;
+    if (count === 0) continue;
+    const radius = TIER_RADII[tier];
+    const angleStep = (2 * Math.PI) / count;
+    tierNodes.forEach((node, i) => {
+      // Start first node at the top
+      const angle = i * angleStep - Math.PI / 2;
+      const x = radius * Math.cos(angle);
+      const y = radius * Math.sin(angle);
+      const nodeToUpdate = layoutNodesMap.get(node.id);
+      if (nodeToUpdate) {
+        nodeToUpdate.position = { x, y };
+      }
+    });
+  }
+  return { nodes: Array.from(layoutNodesMap.values()), edges };
 };

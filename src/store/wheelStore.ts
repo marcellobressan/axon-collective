@@ -4,7 +4,7 @@ import type { Wheel, WheelNode, WheelEdge } from '@shared/types';
 import type { Connection, EdgeChange, NodeChange, Viewport } from '@xyflow/react';
 import { addEdge, applyEdgeChanges, applyNodeChanges, getConnectedEdges } from '@xyflow/react';
 import { api } from '@/lib/api-client';
-import { treeLayout } from '@/lib/layout';
+import { radialLayout } from '@/lib/layout';
 type HistoryState = {
   nodes: WheelNode[];
   edges: WheelEdge[];
@@ -70,7 +70,7 @@ const useWheelStore = create<RFState>()(
         try {
           const remoteWheel = await api<Wheel>(`/api/wheels/${id}`);
           if (isInitialLoad) {
-            const layoutResult = treeLayout(remoteWheel.nodes as WheelNode[], remoteWheel.edges);
+            const layoutResult = radialLayout(remoteWheel.nodes as WheelNode[], remoteWheel.edges);
             set({
               title: remoteWheel.title,
               nodes: layoutResult.nodes,
@@ -173,15 +173,15 @@ const useWheelStore = create<RFState>()(
           type: 'custom',
           data: { label: 'New Consequence', tier: newTier, color: tierColors[newTier] || '#6b7280' },
           position: { x: sourceNode.position.x, y: sourceNode.position.y + 150 },
-          width: 160,
-          height: 60,
+          width: 144,
+          height: 144,
         };
         const newEdge: WheelEdge = {
           id: `e-${sourceNode.id}-${newNode.id}`,
           source: sourceNode.id,
           target: newNode.id,
         };
-        const { nodes, edges } = treeLayout([...get().nodes, newNode], [...get().edges, newEdge]);
+        const { nodes, edges } = radialLayout([...get().nodes, newNode], [...get().edges, newEdge]);
         set({ nodes, edges, nodeToFocus: newNode.id });
       },
       saveWheel: async () => {
@@ -203,7 +203,7 @@ const useWheelStore = create<RFState>()(
       resetLayout: () => {
         takeSnapshot();
         const { nodes, edges } = get();
-        const layoutResult = treeLayout(nodes, edges);
+        const layoutResult = radialLayout(nodes, edges);
         set({ nodes: layoutResult.nodes, edges: layoutResult.edges });
       },
       updateTitle: (newTitle: string) => {

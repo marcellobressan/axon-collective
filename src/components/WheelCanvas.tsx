@@ -21,6 +21,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu';
 import type { WheelNode } from '@shared/types';
+import { TIER_RADII } from '@/lib/layout';
 import '@xyflow/react/dist/style.css';
 const COLORS = ['#3b82f6', '#0ea5e9', '#14b8a6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 function downloadImage(dataUrl: string, name: string) {
@@ -28,6 +29,24 @@ function downloadImage(dataUrl: string, name: string) {
   a.setAttribute('download', name);
   a.setAttribute('href', dataUrl);
   a.click();
+}
+function TierBackground() {
+  return (
+    <div className="absolute inset-0 z-0 pointer-events-none">
+      <div className="w-full h-full relative flex items-center justify-center">
+        {TIER_RADII.slice(1).map((radius, index) => (
+          <div
+            key={index}
+            className="absolute rounded-full border border-dashed border-border"
+            style={{
+              width: radius * 2,
+              height: radius * 2,
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  );
 }
 function Canvas() {
   const nodes = useWheelStore(s => s.nodes);
@@ -95,6 +114,7 @@ function Canvas() {
   if (error) return <div className="w-full h-full flex items-center justify-center bg-destructive/10 text-destructive-foreground rounded-lg"><p>Error: {error}</p></div>;
   return (
     <div className="w-full h-full relative">
+      <TierBackground />
       <ContextMenu>
         <ContextMenuTrigger className="w-full h-full">
           <ReactFlow
@@ -106,8 +126,9 @@ function Canvas() {
             nodeTypes={nodeTypes}
             onNodeContextMenu={onNodeContextMenu}
             fitView
-            className="bg-background"
+            className="bg-transparent"
             proOptions={{ hideAttribution: true }}
+            defaultEdgeOptions={{ type: 'smoothstep' }}
           >
             <Background />
             <Controls />
