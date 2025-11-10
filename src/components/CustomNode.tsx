@@ -57,7 +57,7 @@ function CustomNode({ id, data, selected }: NodeProps<WheelNode>) {
         return () => clearTimeout(timer);
       }
     }
-  }, [data.label, isEditing]);
+  }, [data.label]);
   // Effect to handle auto-focusing new nodes
   useEffect(() => {
     if (nodeToFocus === id) {
