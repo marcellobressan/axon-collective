@@ -36,6 +36,7 @@ export type RFState = {
   updateTitle: (newTitle: string) => void;
   setNodeToFocus: (nodeId: string | null) => void;
   setEditingNodeId: (nodeId: string | null) => void;
+  toggleNodeCollapse: (nodeId: string) => void;
   undo: () => void;
   redo: () => void;
 };
@@ -184,12 +185,65 @@ const useWheelStore = create<RFState>()(
         const { nodes, edges } = radialLayout([...get().nodes, newNode], [...get().edges, newEdge]);
         set({ nodes, edges, nodeToFocus: newNode.id });
       },
+      toggleNodeCollapse: (nodeId: string) => {
+        takeSnapshot();
+        set(state => {
+          const targetNode = state.nodes.find(n => n.id === nodeId);
+          if (!targetNode) return;
+          const isCollapsing = !targetNode.data.collapsed;
+          targetNode.data.collapsed = isCollapsing;
+          const getDescendants = (startNodeId: string): Set<string> => {
+            const descendants = new Set<string>();
+            const queue = [startNodeId];
+            const visited = new Set<string>([startNodeId]);
+            while (queue.length > 0) {
+              const currentId = queue.shift()!;
+              const children = state.edges
+                .filter(e => e.source === currentId)
+                .map(e => e.target);
+              for (const childId of children) {
+                if (!visited.has(childId)) {
+                  visited.add(childId);
+                  descendants.add(childId);
+                  queue.push(childId);
+                }
+              }
+            }
+            return descendants;
+          };
+          const descendants = getDescendants(nodeId);
+          if (descendants.size === 0) return;
+          state.nodes.forEach(node => {
+            if (descendants.has(node.id)) {
+              node.hidden = isCollapsing;
+              // When expanding, ensure children of a collapsed child remain hidden
+              if (!isCollapsing && node.data.collapsed) {
+                const childDescendants = getDescendants(node.id);
+                childDescendants.forEach(descId => {
+                  const descNode = state.nodes.find(n => n.id === descId);
+                  if (descNode) descNode.hidden = true;
+                });
+              }
+            }
+          });
+          state.edges.forEach(edge => {
+            if (descendants.has(edge.target)) {
+              const sourceNode = state.nodes.find(n => n.id === edge.source);
+              if (sourceNode?.hidden) {
+                edge.hidden = true;
+              } else {
+                edge.hidden = isCollapsing;
+              }
+            }
+          });
+        });
+      },
       saveWheel: async () => {
         const { wheelId, title, nodes, edges } = get();
         if (!wheelId) return;
         try {
-          const nodesToSave = nodes.map(({ id, position, data, type, width, height }) => ({
-            id, position, data, type, width, height
+          const nodesToSave = nodes.map(({ id, position, data, type, width, height, hidden }) => ({
+            id, position, data, type, width, height, hidden
           }));
           await api(`/api/wheels/${wheelId}`, {
             method: 'PUT',

@@ -38,15 +38,12 @@ export interface StoredNode {
   height?: number | null;
   hidden?: boolean | null;
 }
-export interface StoredEdge extends Edge {
-  label?: string;
-}
+export type StoredEdge = Edge;
 export interface Wheel {
   id: string;
   title: string;
   nodes: StoredNode[];
   edges: StoredEdge[];
-  lastModified?: number;
 }
 // Frontend-specific types that extend the stored types
 export type WheelNode = Node<WheelNodeData, 'custom'>;

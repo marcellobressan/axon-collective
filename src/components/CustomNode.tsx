@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Handle, Position, NodeProps, useReactFlow } from '@xyflow/react';
-import { PlusCircle } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { Handle, Position, NodeProps, useReactFlow, useStore } from '@xyflow/react';
+import { PlusCircle, Plus, Minus } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import useWheelStore from '@/store/wheelStore';
@@ -12,11 +12,14 @@ function CustomNode({ id, data, selected }: NodeProps<WheelNode>) {
   const setNodeToFocus = useWheelStore(s => s.setNodeToFocus);
   const editingNodeId = useWheelStore(s => s.editingNodeId);
   const setEditingNodeId = useWheelStore(s => s.setEditingNodeId);
+  const toggleNodeCollapse = useWheelStore(s => s.toggleNodeCollapse);
   const isEditing = editingNodeId === id;
   const [label, setLabel] = useState(data.label);
   const [isPulsing, setIsPulsing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { getNode } = useReactFlow();
+  const edges = useStore(s => s.edges);
+  const hasChildren = useMemo(() => edges.some(edge => edge.source === id), [edges, id]);
   const handleDoubleClick = () => {
     if (data.tier > 3) return;
     setEditingNodeId(id);
@@ -41,6 +44,10 @@ function CustomNode({ id, data, selected }: NodeProps<WheelNode>) {
       addNode(thisNode as WheelNode);
     }
   }, [id, getNode, addNode]);
+  const handleToggleCollapse = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    toggleNodeCollapse(id);
+  };
   useEffect(() => {
     if (isEditing && textareaRef.current) {
       textareaRef.current.focus();
@@ -99,6 +106,15 @@ function CustomNode({ id, data, selected }: NodeProps<WheelNode>) {
           aria-label="Add consequence"
         >
           <PlusCircle className="w-5 h-5 text-foreground/80 hover:text-foreground" />
+        </button>
+      )}
+      {hasChildren && (
+        <button
+          onClick={handleToggleCollapse}
+          className="absolute -top-2 -right-2 w-6 h-6 bg-background rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform"
+          aria-label={data.collapsed ? 'Expand node' : 'Collapse node'}
+        >
+          {data.collapsed ? <Plus className="w-4 h-4 text-foreground" /> : <Minus className="w-4 h-4 text-foreground" />}
         </button>
       )}
     </motion.div>
