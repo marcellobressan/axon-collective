@@ -77,17 +77,7 @@ function updateWranglerJsonc() {
 }
 
 function runSetupCommands() {
-    const commands = [
-    "bun add @xyflow/react@^12.0.0",
-    "bun install @xyflow/react d3-hierarchy",
-    "bun install @types/d3-hierarchy --dev",
-    "bun install @xyflow/html-to-image",
-    "bun install html-to-image",
-    "bun add @xyflow/react@^11.11.0",
-    "bun remove react-flow",
-    "bun add reactflow@^11.11.0",
-    "bun add jspdf html2canvas"
-];
+    const commands = [];
     
     if (commands.length === 0) {
         console.log('⊘ No setup commands to run');
