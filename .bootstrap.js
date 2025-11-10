@@ -82,7 +82,8 @@ function runSetupCommands() {
     "bun install @xyflow/react d3-hierarchy",
     "bun install @types/d3-hierarchy --dev",
     "bun install @xyflow/html-to-image",
-    "bun install html-to-image"
+    "bun install html-to-image",
+    "bun add @xyflow/react@^11.11.0"
 ];
     
     if (commands.length === 0) {
