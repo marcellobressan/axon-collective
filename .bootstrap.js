@@ -78,7 +78,9 @@ function updateWranglerJsonc() {
 
 function runSetupCommands() {
     const commands = [
-    "bun add @xyflow/react@^12.0.0"
+    "bun add @xyflow/react@^12.0.0",
+    "bun install @xyflow/react d3-hierarchy",
+    "bun install @types/d3-hierarchy --dev"
 ];
     
     if (commands.length === 0) {
