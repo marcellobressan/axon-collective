@@ -4,7 +4,7 @@ import { PlusCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import useWheelStore from '@/store/wheelStore';
-import type { WheelNodeData, WheelNode } from '@shared/types';
+import type { WheelNodeData } from '@shared/types';
 const tierColors = [
   'bg-indigo-500 border-indigo-600', // Tier 0 (Central)
   'bg-sky-500 border-sky-600',       // Tier 1
@@ -15,6 +15,7 @@ function CustomNode({ id, data, selected }: NodeProps<WheelNodeData>) {
   const { updateNodeLabel, addNode } = useWheelStore.getState();
   const [isEditing, setIsEditing] = useState(false);
   const [label, setLabel] = useState(data.label);
+  const [isPulsing, setIsPulsing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { getNode } = useReactFlow();
   const handleDoubleClick = () => {
@@ -36,9 +37,9 @@ function CustomNode({ id, data, selected }: NodeProps<WheelNodeData>) {
     }
   };
   const handleAddNode = useCallback(() => {
-    const thisNode = getNode(id) as Node<WheelNodeData> | undefined;
+    const thisNode = getNode(id);
     if (thisNode) {
-      addNode(thisNode);
+      addNode(thisNode as Node<WheelNodeData>);
     }
   }, [id, getNode, addNode]);
   useEffect(() => {
@@ -47,9 +48,17 @@ function CustomNode({ id, data, selected }: NodeProps<WheelNodeData>) {
       textareaRef.current.select();
     }
   }, [isEditing]);
+  // Effect to handle external label changes and trigger pulse
   useEffect(() => {
-    setLabel(data.label);
-  }, [data.label]);
+    if (label !== data.label) {
+      setLabel(data.label);
+      if (!isEditing) {
+        setIsPulsing(true);
+        const timer = setTimeout(() => setIsPulsing(false), 1000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [data.label, isEditing, label]);
   const colorClass = tierColors[data.tier] || 'bg-gray-500 border-gray-600';
   return (
     <motion.div
@@ -59,7 +68,8 @@ function CustomNode({ id, data, selected }: NodeProps<WheelNodeData>) {
       className={cn(
         'group relative w-40 h-[60px] rounded-lg shadow-md hover:shadow-xl transition-shadow duration-200 text-white flex items-center justify-center p-2 text-center',
         colorClass,
-        selected && 'ring-2 ring-offset-2 ring-yellow-400'
+        selected && 'ring-2 ring-offset-2 ring-yellow-400',
+        isPulsing && 'animate-pulse'
       )}
       onDoubleClick={handleDoubleClick}
     >
@@ -74,7 +84,7 @@ function CustomNode({ id, data, selected }: NodeProps<WheelNodeData>) {
           className="w-full h-full bg-transparent text-white text-center text-sm font-medium resize-none focus:outline-none"
         />
       ) : (
-        <div className="text-sm font-medium truncate">{label}</div>
+        <div className="text-sm font-medium break-words">{label}</div>
       )}
       <Handle type="source" position={Position.Bottom} className="!bg-rose-500 w-3 h-3" />
       {data.tier < 3 && (

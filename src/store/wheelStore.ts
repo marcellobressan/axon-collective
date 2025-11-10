@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import type { Wheel, WheelNode, WheelEdge } from '@shared/types';
+import type { Wheel, WheelNode, WheelEdge, StoredNode } from '@shared/types';
 import type { Connection, EdgeChange, NodeChange, Viewport } from '@xyflow/react';
 import { addEdge, applyEdgeChanges, applyNodeChanges } from '@xyflow/react';
 import { api } from '@/lib/api-client';
@@ -41,19 +41,39 @@ const useWheelStore = create<RFState>()(
         set({ error: null });
       }
       try {
-        const wheel = await api<Wheel>(`/api/wheels/${id}`);
-        // For background updates, we don't want to re-run the layout
-        // if the node/edge count is the same, to avoid disrupting user's manual layout.
-        // A more sophisticated merge would be needed for a real production app.
-        const shouldRunLayout = isInitialLoad || get().nodes.length !== wheel.nodes.length || get().edges.length !== wheel.edges.length;
-        const layoutResult = shouldRunLayout ? treeLayout(wheel.nodes, wheel.edges) : { nodes: wheel.nodes, edges: wheel.edges };
-        set({
-          title: wheel.title,
-          nodes: layoutResult.nodes,
-          edges: layoutResult.edges,
-          isLoading: false,
-          wheelId: id,
-        });
+        const remoteWheel = await api<Wheel>(`/api/wheels/${id}`);
+        if (isInitialLoad) {
+          const layoutResult = treeLayout(remoteWheel.nodes as WheelNode[], remoteWheel.edges);
+          set({
+            title: remoteWheel.title,
+            nodes: layoutResult.nodes,
+            edges: layoutResult.edges,
+            isLoading: false,
+            wheelId: id,
+          });
+        } else {
+          // Smart merge for background updates
+          set(state => {
+            state.title = remoteWheel.title;
+            const localNodesById = new Map(state.nodes.map(n => [n.id, n]));
+            const remoteNodesById = new Map(remoteWheel.nodes.map(n => [n.id, n]));
+            // Update existing nodes and add new ones
+            for (const remoteNode of remoteWheel.nodes) {
+              const localNode = localNodesById.get(remoteNode.id);
+              if (localNode) {
+                // Preserve local position, update data
+                localNode.data = remoteNode.data;
+              } else {
+                // Add new node
+                state.nodes.push(remoteNode as WheelNode);
+              }
+            }
+            // Remove deleted nodes
+            state.nodes = state.nodes.filter(n => remoteNodesById.has(n.id));
+            // Just replace edges, as they are dependent on nodes
+            state.edges = remoteWheel.edges;
+          });
+        }
       } catch (error) {
         console.error('Failed to fetch wheel:', error);
         set({
@@ -110,13 +130,16 @@ const useWheelStore = create<RFState>()(
       const { wheelId, title, nodes, edges } = get();
       if (!wheelId) return;
       try {
+        const nodesToSave = nodes.map(({ id, position, data, type, width, height }) => ({
+          id, position, data, type, width, height
+        }));
         await api(`/api/wheels/${wheelId}`, {
           method: 'PUT',
-          body: JSON.stringify({ title, nodes, edges }),
+          body: JSON.stringify({ title, nodes: nodesToSave, edges }),
         });
       } catch (error) {
         console.error('Failed to save wheel:', error);
-        // Optionally set an error state to show in UI
+        throw error;
       }
     },
     resetLayout: () => {

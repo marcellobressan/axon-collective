@@ -9,6 +9,7 @@ import {
 } from '@xyflow/react';
 import { Save, Share2, LayoutPanelLeft } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
+import { useHotkeys } from 'react-hotkeys-hook';
 import useWheelStore from '@/store/wheelStore';
 import CustomNode from './CustomNode';
 import { Button } from '@/components/ui/button';
@@ -53,6 +54,18 @@ function Canvas() {
       console.error('Could not copy text: ', err);
     });
   };
+  const handleResetLayout = () => {
+    resetLayout();
+    toast.info('Layout has been reset.');
+  };
+  useHotkeys('mod+s', (event) => {
+    event.preventDefault();
+    handleSave();
+  }, { preventDefault: true });
+  useHotkeys('mod+r', (event) => {
+    event.preventDefault();
+    handleResetLayout();
+  }, { preventDefault: true });
   if (isLoading) {
     return <Skeleton className="w-full h-full rounded-lg" />;
   }
@@ -80,13 +93,13 @@ function Canvas() {
         <Controls />
       </ReactFlow>
       <div className="absolute top-4 right-4 flex gap-2">
-        <Button variant="outline" size="icon" onClick={resetLayout} title="Reset Layout">
+        <Button variant="outline" size="icon" onClick={handleResetLayout} title="Reset Layout (Cmd+R)">
           <LayoutPanelLeft className="w-4 h-4" />
         </Button>
         <Button variant="outline" size="icon" onClick={handleShare} title="Share">
           <Share2 className="w-4 h-4" />
         </Button>
-        <Button onClick={handleSave} title="Save Wheel">
+        <Button onClick={handleSave} title="Save Wheel (Cmd+S)">
           <Save className="w-4 h-4 mr-2" />
           Save
         </Button>

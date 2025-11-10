@@ -21,7 +21,7 @@ export interface ChatMessage {
   ts: number; // epoch millis
 }
 // Axon Collective Types
-export interface WheelNodeData {
+export interface WheelNodeData extends Record<string, unknown> {
   label: string;
   tier: number; // 0 for central, 1 for first-order, etc.
 }
