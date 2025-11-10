@@ -1,148 +1,170 @@
-// Home page of the app, Currently a demo page for demonstration.
-// Please rewrite this file to implement your own logic. Do not replace or delete it, simply rewrite this HomePage.tsx file.
-import { useEffect } from 'react'
-import { Sparkles } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { ThemeToggle } from '@/components/ThemeToggle'
-import { Toaster, toast } from '@/components/ui/sonner'
-import { create } from 'zustand'
-import { useShallow } from 'zustand/react/shallow'
-import { AppLayout } from '@/components/layout/AppLayout'
-
-// Timer store: independent slice with a clear, minimal API, for demonstration
-type TimerState = {
-  isRunning: boolean;
-  elapsedMs: number;
-  start: () => void;
-  pause: () => void;
-  reset: () => void;
-  tick: (deltaMs: number) => void;
-}
-
-const useTimerStore = create<TimerState>((set) => ({
-  isRunning: false,
-  elapsedMs: 0,
-  start: () => set({ isRunning: true }),
-  pause: () => set({ isRunning: false }),
-  reset: () => set({ elapsedMs: 0, isRunning: false }),
-  tick: (deltaMs) => set((s) => ({ elapsedMs: s.elapsedMs + deltaMs })),
-}))
-
-// Counter store: separate slice to showcase multiple stores without coupling
-type CounterState = {
-  count: number;
-  inc: () => void;
-  reset: () => void;
-}
-
-const useCounterStore = create<CounterState>((set) => ({
-  count: 0,
-  inc: () => set((s) => ({ count: s.count + 1 })),
-  reset: () => set({ count: 0 }),
-}))
-
-function formatDuration(ms: number): string {
-  const total = Math.max(0, Math.floor(ms / 1000))
-  const m = Math.floor(total / 60)
-  const s = total % 60
-  return `${m}:${s.toString().padStart(2, '0')}`
-}
-
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Plus, BrainCircuit } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { Toaster, toast } from 'sonner';
+import { api } from '@/lib/api-client';
+import type { Wheel } from '@shared/types';
 export function HomePage() {
-  // Select only what is needed to avoid unnecessary re-renders
-  const { isRunning, elapsedMs } = useTimerStore(
-    useShallow((s) => ({ isRunning: s.isRunning, elapsedMs: s.elapsedMs })),
-  )
-  const start = useTimerStore((s) => s.start)
-  const pause = useTimerStore((s) => s.pause)
-  const resetTimer = useTimerStore((s) => s.reset)
-  const count = useCounterStore((s) => s.count)
-  const inc = useCounterStore((s) => s.inc)
-  const resetCount = useCounterStore((s) => s.reset)
-
-  // Drive the timer only while running; avoid update-depth issues with a scoped RAF
+  const [wheels, setWheels] = useState<Wheel[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [newWheelTitle, setNewWheelTitle] = useState('');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const navigate = useNavigate();
   useEffect(() => {
-    if (!isRunning) return
-    let raf = 0
-    let last = performance.now()
-    const loop = () => {
-      const now = performance.now()
-      const delta = now - last
-      last = now
-      // Read store API directly to keep effect deps minimal and stable
-      useTimerStore.getState().tick(delta)
-      raf = requestAnimationFrame(loop)
+    const fetchWheels = async () => {
+      try {
+        setIsLoading(true);
+        const data = await api<Wheel[]>('/api/wheels');
+        setWheels(data);
+      } catch (error) {
+        console.error('Failed to fetch wheels:', error);
+        toast.error('Could not load your wheels. Please try again later.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchWheels();
+  }, []);
+  const handleCreateWheel = async () => {
+    if (!newWheelTitle.trim()) {
+      toast.warning('Please enter a title for your new wheel.');
+      return;
     }
-    raf = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(raf)
-  }, [isRunning])
-
-  const onPleaseWait = () => {
-    inc()
-    if (!isRunning) {
-      start()
-      toast.success('Building your app…', {
-        description: 'Hang tight, we\'re setting everything up.',
-      })
-    } else {
-      pause()
-      toast.info('Taking a short pause', {
-        description: 'We\'ll continue shortly.',
-      })
+    try {
+      const newWheel = await api<Wheel>('/api/wheels', {
+        method: 'POST',
+        body: JSON.stringify({ title: newWheelTitle.trim() }),
+      });
+      toast.success(`Wheel "${newWheel.title}" created!`);
+      setWheels((prev) => [...prev, newWheel]);
+      setNewWheelTitle('');
+      setIsDialogOpen(false);
+      navigate(`/wheel/${newWheel.id}`);
+    } catch (error) {
+      console.error('Failed to create wheel:', error);
+      toast.error('Failed to create wheel. Please try again.');
     }
-  }
-
-  const formatted = formatDuration(elapsedMs)
-
+  };
   return (
-    <AppLayout>
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground p-4 overflow-hidden relative">
-        <ThemeToggle />
-        <div className="absolute inset-0 bg-gradient-rainbow opacity-10 dark:opacity-20 pointer-events-none" />
-        <div className="text-center space-y-8 relative z-10 animate-fade-in">
-          <div className="flex justify-center">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-primary flex items-center justify-center shadow-primary floating">
-              <Sparkles className="w-8 h-8 text-white rotating" />
+    <div className="min-h-screen bg-background">
+      <ThemeToggle />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="py-12 md:py-16">
+          <header className="text-center mb-12">
+            <div className="inline-flex items-center gap-3 mb-4">
+              <BrainCircuit className="w-10 h-10 text-indigo-500" />
+              <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground">
+                Axon Collective
+              </h1>
             </div>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              A visually stunning, real-time collaborative tool for futures wheel brainstorming and strategic foresight.
+            </p>
+          </header>
+          <div className="flex justify-between items-center mb-8">
+            <h2 className="text-2xl font-semibold">Your Wheels</h2>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" /> Create New Wheel
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Create a New Futures Wheel</DialogTitle>
+                  <DialogDescription>
+                    What is the central idea, event, or trend you want to explore?
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="name" className="text-right">
+                      Title
+                    </Label>
+                    <Input
+                      id="name"
+                      value={newWheelTitle}
+                      onChange={(e) => setNewWheelTitle(e.target.value)}
+                      className="col-span-3"
+                      placeholder="e.g., 'AI in Education'"
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button type="submit" onClick={handleCreateWheel}>
+                    Create Wheel
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
-          <h1 className="text-5xl md:text-7xl font-display font-bold text-balance leading-tight">
-            Creating your <span className="text-gradient">app</span>
-          </h1>
-          <p className="text-lg md:text-xl text-muted-foreground max-w-xl mx-auto text-pretty">
-            Your application would be ready soon.
-          </p>
-          <div className="flex justify-center gap-4">
-            <Button 
-              size="lg"
-              onClick={onPleaseWait}
-              className="btn-gradient px-8 py-4 text-lg font-semibold hover:-translate-y-0.5 transition-all duration-200"
-              aria-live="polite"
-            >
-              Please Wait
-            </Button>
-          </div>
-          <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
-            <div>
-              Time elapsed: <span className="font-medium tabular-nums text-foreground">{formatted}</span>
+          {isLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {[...Array(4)].map((_, i) => (
+                <Card key={i}>
+                  <CardHeader>
+                    <Skeleton className="h-6 w-3/4" />
+                    <Skeleton className="h-4 w-1/2" />
+                  </CardHeader>
+                  <CardContent>
+                    <Skeleton className="h-4 w-full" />
+                  </CardContent>
+                </Card>
+              ))}
             </div>
-            <div>
-              Coins: <span className="font-medium tabular-nums text-foreground">{count}</span>
+          ) : wheels.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {wheels.map((wheel) => (
+                <Link to={`/wheel/${wheel.id}`} key={wheel.id}>
+                  <Card className="h-full hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
+                    <CardHeader>
+                      <CardTitle className="truncate">{wheel.title}</CardTitle>
+                      <CardDescription>
+                        {wheel.nodes.length} nodes, {wheel.edges.length} connections
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground">Click to open and edit this wheel.</p>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
             </div>
-          </div>
-          <div className="flex justify-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => { resetTimer(); resetCount(); toast('Reset complete') }}>
-              Reset
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => { inc(); toast('Coin added') }}>
-              Add Coin
-            </Button>
-          </div>
+          ) : (
+            <div className="text-center py-16 border-2 border-dashed rounded-lg">
+              <h3 className="text-xl font-medium text-foreground">No wheels yet</h3>
+              <p className="text-muted-foreground mt-2">
+                Get started by creating your first futures wheel.
+              </p>
+            </div>
+          )}
         </div>
-        <footer className="absolute bottom-8 text-center text-muted-foreground/80">
-          <p>Powered by Cloudflare</p>
-        </footer>
-        <Toaster richColors closeButton />
       </div>
-    </AppLayout>
-  )
+      <footer className="text-center py-8 text-muted-foreground text-sm">
+        <p>Built with ��️ at Cloudflare</p>
+      </footer>
+      <Toaster richColors />
+    </div>
+  );
 }

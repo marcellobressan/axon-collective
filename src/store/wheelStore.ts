@@ -1,30 +1,18 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import type { Wheel, WheelNode, WheelEdge, StoredNode } from '@shared/types';
+import type { Wheel, WheelNode, WheelEdge } from '@shared/types';
 import type { Connection, EdgeChange, NodeChange, Viewport } from '@xyflow/react';
-import { addEdge, applyEdgeChanges, applyNodeChanges, getConnectedEdges } from '@xyflow/react';
+import { addEdge, applyEdgeChanges, applyNodeChanges } from '@xyflow/react';
 import { api } from '@/lib/api-client';
-import { radialLayout } from '@/lib/layout';
-import useAuthStore from './authStore';
-type HistoryState = {
-  nodes: WheelNode[];
-  edges: WheelEdge[];
-};
+import { treeLayout } from '@/lib/layout';
 export type RFState = {
   wheelId: string | null;
-  userId: string | null;
   title: string;
   nodes: WheelNode[];
   edges: WheelEdge[];
   viewport: Viewport | null;
   isLoading: boolean;
   error: string | null;
-  nodeToFocus: string | null;
-  editingNodeId: string | null;
-  past: HistoryState[];
-  future: HistoryState[];
-  ownerId: string | null;
-  visibility: 'public' | 'private';
   fetchWheel: (id: string) => Promise<void>;
   setNodes: (nodes: WheelNode[]) => void;
   setEdges: (edges: WheelEdge[]) => void;
@@ -32,360 +20,100 @@ export type RFState = {
   onEdgesChange: (changes: EdgeChange[]) => void;
   onConnect: (connection: Connection) => void;
   updateNodeLabel: (nodeId: string, label: string) => void;
-  updateNodeDescription: (nodeId: string, description: string) => void;
-  updateNodeColor: (nodeId: string, color: string) => void;
-  updateEdgeLabel: (edgeId: string, label: string) => void;
-  deleteNode: (nodeId: string) => void;
   addNode: (sourceNode: WheelNode) => void;
   saveWheel: () => Promise<void>;
   resetLayout: () => void;
-  updateTitle: (newTitle: string) => void;
-  setNodeToFocus: (nodeId: string | null) => void;
-  setEditingNodeId: (nodeId: string | null) => void;
-  toggleNodeCollapse: (nodeId: string) => void;
-  castVote: (nodeId: string, vote: number) => Promise<void>;
-  updateWheelVisibility: (visibility: 'public' | 'private') => Promise<void>;
-  undo: () => void;
-  redo: () => void;
 };
-const tierColors = ['#3b82f6', '#0ea5e9', '#14b8a6', '#f59e0b']; // blue, sky, teal, amber
 const useWheelStore = create<RFState>()(
-  immer((set, get) => {
-    const takeSnapshot = () => {
-      set(state => {
-        state.past.push({ nodes: state.nodes, edges: state.edges });
-        state.future = []; // Clear future on new action
+  immer((set, get) => ({
+    wheelId: null,
+    title: '',
+    nodes: [],
+    edges: [],
+    viewport: null,
+    isLoading: true,
+    error: null,
+    fetchWheel: async (id) => {
+      set({ isLoading: true, error: null, wheelId: id });
+      try {
+        const wheel = await api<Wheel>(`/api/wheels/${id}`);
+        const layoutResult = treeLayout(wheel.nodes, wheel.edges);
+        set({
+          title: wheel.title,
+          nodes: layoutResult.nodes,
+          edges: layoutResult.edges,
+          isLoading: false,
+        });
+      } catch (error) {
+        console.error('Failed to fetch wheel:', error);
+        set({
+          error: error instanceof Error ? error.message : 'Failed to load wheel',
+          isLoading: false,
+        });
+      }
+    },
+    setNodes: (nodes) => set({ nodes }),
+    setEdges: (edges) => set({ edges }),
+    onNodesChange: (changes) => {
+      set((state) => {
+        state.nodes = applyNodeChanges(changes, state.nodes);
       });
-    };
-    return {
-      wheelId: null,
-      userId: useAuthStore.getState().user?.id || null,
-      title: '',
-      nodes: [],
-      edges: [],
-      viewport: null,
-      isLoading: true,
-      error: null,
-      nodeToFocus: null,
-      editingNodeId: null,
-      past: [],
-      future: [],
-      ownerId: null,
-      visibility: 'private',
-      fetchWheel: async (id) => {
-        const userId = useAuthStore.getState().user?.id;
-        const isInitialLoad = get().wheelId !== id || get().nodes.length === 0;
-        if (isInitialLoad) {
-          set({ isLoading: true, error: null, wheelId: id, past: [], future: [] });
-        } else {
-          set({ error: null });
+    },
+    onEdgesChange: (changes) => {
+      set((state) => {
+        state.edges = applyEdgeChanges(changes, state.edges);
+      });
+    },
+    onConnect: (connection) => {
+      set((state) => {
+        state.edges = addEdge(connection, state.edges);
+      });
+    },
+    updateNodeLabel: (nodeId, label) => {
+      set((state) => {
+        const node = state.nodes.find((n) => n.id === nodeId);
+        if (node) {
+          node.data.label = label;
         }
-        try {
-          const remoteWheel = await api<Wheel>(`/api/wheels/${id}?userId=${userId}`);
-          if (isInitialLoad) {
-            const layoutResult = radialLayout(remoteWheel.nodes as WheelNode[], remoteWheel.edges);
-            set({
-              title: remoteWheel.title,
-              nodes: layoutResult.nodes,
-              edges: layoutResult.edges,
-              isLoading: false,
-              wheelId: id,
-              ownerId: remoteWheel.ownerId,
-              visibility: remoteWheel.visibility,
-              userId: userId,
-            });
-          } else {
-            set(state => {
-              state.title = remoteWheel.title;
-              state.ownerId = remoteWheel.ownerId;
-              state.visibility = remoteWheel.visibility;
-              const localNodesById = new Map(state.nodes.map(n => [n.id, n]));
-              const remoteNodesById = new Map(remoteWheel.nodes.map(n => [n.id, n]));
-              for (const remoteNode of remoteWheel.nodes) {
-                const localNode = localNodesById.get(remoteNode.id);
-                if (localNode) {
-                  localNode.data = remoteNode.data;
-                } else {
-                  state.nodes.push(remoteNode as WheelNode);
-                }
-              }
-              state.nodes = state.nodes.filter(n => remoteNodesById.has(n.id));
-              state.edges = remoteWheel.edges;
-            });
-          }
-        } catch (error) {
-          console.error('Failed to fetch wheel:', error);
-          set({
-            error: error instanceof Error ? error.message : 'Failed to load wheel',
-            isLoading: false,
-          });
-        }
-      },
-      setNodes: (nodes) => set({ nodes }),
-      setEdges: (edges) => set({ edges }),
-      onNodesChange: (changes) => {
-        const isDrag = changes.every(c => c.type === 'position' && c.dragging);
-        if (!isDrag) takeSnapshot();
-        set((state) => {
-          state.nodes = applyNodeChanges(changes, state.nodes) as WheelNode[];
-          if (state.editingNodeId) {
-            const deselectionChange = changes.find(
-              (change) =>
-                change.type === 'select' &&
-                change.id === state.editingNodeId &&
-                !change.selected
-            );
-            if (deselectionChange) {
-              state.editingNodeId = null;
-            }
-          }
+      });
+    },
+    addNode: (sourceNode) => {
+      const newTier = sourceNode.data.tier + 1;
+      if (newTier > 3) return; // Limit to 3rd order consequences
+      const newNode: WheelNode = {
+        id: crypto.randomUUID(),
+        type: 'custom',
+        data: { label: 'New Consequence', tier: newTier },
+        position: { x: sourceNode.position.x, y: sourceNode.position.y + 150 },
+        width: 160,
+        height: 60,
+      };
+      const newEdge: WheelEdge = {
+        id: `e-${sourceNode.id}-${newNode.id}`,
+        source: sourceNode.id,
+        target: newNode.id,
+      };
+      const { nodes, edges } = treeLayout([...get().nodes, newNode], [...get().edges, newEdge]);
+      set({ nodes, edges });
+    },
+    saveWheel: async () => {
+      const { wheelId, title, nodes, edges } = get();
+      if (!wheelId) return;
+      try {
+        await api(`/api/wheels/${wheelId}`, {
+          method: 'PUT',
+          body: JSON.stringify({ title, nodes, edges }),
         });
-      },
-      onEdgesChange: (changes) => {
-        takeSnapshot();
-        set((state) => {
-          state.edges = applyEdgeChanges(changes, state.edges);
-        });
-      },
-      onConnect: (connection) => {
-        takeSnapshot();
-        set((state) => {
-          const newEdge = { ...connection, type: 'labeled', label: '' };
-          state.edges = addEdge(newEdge, state.edges);
-        });
-      },
-      updateNodeLabel: (nodeId, label) => {
-        takeSnapshot();
-        set((state) => {
-          const node = state.nodes.find((n) => n.id === nodeId);
-          if (node) {
-            node.data.label = label;
-          }
-        });
-      },
-      updateNodeDescription: (nodeId, description) => {
-        takeSnapshot();
-        set((state) => {
-          const node = state.nodes.find((n) => n.id === nodeId);
-          if (node) {
-            node.data.description = description;
-          }
-        });
-      },
-      updateNodeColor: (nodeId, color) => {
-        takeSnapshot();
-        set((state) => {
-          const node = state.nodes.find((n) => n.id === nodeId);
-          if (node) {
-            node.data.color = color;
-          }
-        });
-      },
-      updateEdgeLabel: (edgeId, label) => {
-        takeSnapshot();
-        set((state) => {
-          const edge = state.edges.find((e) => e.id === edgeId);
-          if (edge) {
-            edge.label = label;
-          }
-        });
-      },
-      deleteNode: (nodeId) => {
-        takeSnapshot();
-        set((state) => {
-          const nodeToDelete = state.nodes.find(n => n.id === nodeId);
-          if (!nodeToDelete || nodeToDelete.data.tier === 0) return;
-          const connectedEdges = getConnectedEdges([nodeToDelete], state.edges);
-          const edgeIdsToRemove = new Set(connectedEdges.map(e => e.id));
-          state.edges = state.edges.filter(e => !edgeIdsToRemove.has(e.id));
-          state.nodes = state.nodes.filter(n => n.id !== nodeId);
-        });
-      },
-      addNode: (sourceNode) => {
-        takeSnapshot();
-        const newTier = sourceNode.data.tier + 1;
-        if (newTier > 3) return;
-        const newNode: WheelNode = {
-          id: crypto.randomUUID(),
-          type: 'custom',
-          data: { label: 'New Consequence', tier: newTier, color: tierColors[newTier] || '#6b7280' },
-          position: { x: sourceNode.position.x, y: sourceNode.position.y + 150 },
-          width: 144,
-          height: 144,
-        };
-        const newEdge: WheelEdge = {
-          id: `e-${sourceNode.id}-${newNode.id}`,
-          source: sourceNode.id,
-          target: newNode.id,
-          type: 'labeled',
-          label: '',
-        };
-        const { nodes, edges } = radialLayout([...get().nodes, newNode], [...get().edges, newEdge]);
-        set({ nodes, edges, nodeToFocus: newNode.id });
-      },
-      toggleNodeCollapse: (nodeId: string) => {
-        takeSnapshot();
-        set(state => {
-          const targetNode = state.nodes.find(n => n.id === nodeId);
-          if (!targetNode) return;
-          const isCollapsing = !targetNode.data.collapsed;
-          targetNode.data.collapsed = isCollapsing;
-          const getDescendants = (startNodeId: string): Set<string> => {
-            const descendants = new Set<string>();
-            const queue = [startNodeId];
-            const visited = new Set<string>([startNodeId]);
-            while (queue.length > 0) {
-              const currentId = queue.shift()!;
-              const children = state.edges
-                .filter(e => e.source === currentId)
-                .map(e => e.target);
-              for (const childId of children) {
-                if (!visited.has(childId)) {
-                  visited.add(childId);
-                  descendants.add(childId);
-                  queue.push(childId);
-                }
-              }
-            }
-            return descendants;
-          };
-          const descendants = getDescendants(nodeId);
-          if (descendants.size === 0) return;
-          state.nodes.forEach(node => {
-            if (descendants.has(node.id)) {
-              node.hidden = isCollapsing;
-              if (!isCollapsing && node.data.collapsed) {
-                const childDescendants = getDescendants(node.id);
-                childDescendants.forEach(descId => {
-                  const descNode = state.nodes.find(n => n.id === descId);
-                  if (descNode) descNode.hidden = true;
-                });
-              }
-            }
-          });
-          state.edges.forEach(edge => {
-            if (descendants.has(edge.target)) {
-              const sourceNode = state.nodes.find(n => n.id === edge.source);
-              if (sourceNode?.hidden) {
-                edge.hidden = true;
-              } else {
-                edge.hidden = isCollapsing;
-              }
-            }
-          });
-        });
-      },
-      castVote: async (nodeId, vote) => {
-        const { wheelId } = get();
-        const userId = useAuthStore.getState().user?.id;
-        if (!wheelId || !userId) return;
-        set(state => {
-          const node = state.nodes.find(n => n.id === nodeId);
-          if (node) {
-            if (!node.data.votes) node.data.votes = {};
-            node.data.votes[userId] = vote;
-            const votes = Object.values(node.data.votes);
-            node.data.probability = votes.reduce((sum, v) => sum + v, 0) / votes.length;
-          }
-        });
-        try {
-          const updatedNode = await api<StoredNode>(`/api/wheels/${wheelId}/nodes/${nodeId}/vote`, {
-            method: 'POST',
-            body: JSON.stringify({ userId, vote }),
-          });
-          set(state => {
-            const node = state.nodes.find(n => n.id === nodeId);
-            if (node) {
-              node.data = updatedNode.data;
-            }
-          });
-        } catch (error) {
-          console.error('Failed to cast vote:', error);
-        }
-      },
-      saveWheel: async () => {
-        const { wheelId, title, nodes, edges } = get();
-        const userId = useAuthStore.getState().user?.id;
-        if (!wheelId || !userId) return;
-        try {
-          const nodesToSave = nodes.map(({ id, position, data, type, width, height, hidden }) => ({
-            id, position, data, type, width, height, hidden
-          }));
-          const edgesToSave = edges.map(({ id, source, target, type, label }) => ({
-            id, source, target, type, label
-          }));
-          await api(`/api/wheels/${wheelId}`, {
-            method: 'PUT',
-            body: JSON.stringify({ title, nodes: nodesToSave, edges: edgesToSave, userId }),
-          });
-        } catch (error) {
-          console.error('Failed to save wheel:', error);
-          throw error;
-        }
-      },
-      updateWheelVisibility: async (visibility) => {
-        const { wheelId } = get();
-        const userId = useAuthStore.getState().user?.id;
-        if (!wheelId || !userId) return;
-        const previousVisibility = get().visibility;
-        set({ visibility }); // Optimistic update
-        try {
-          await api(`/api/wheels/${wheelId}`, {
-            method: 'PATCH',
-            body: JSON.stringify({ userId, visibility }),
-          });
-        } catch (error) {
-          console.error('Failed to update visibility:', error);
-          set({ visibility: previousVisibility }); // Revert on error
-          throw error;
-        }
-      },
-      resetLayout: () => {
-        takeSnapshot();
+      } catch (error) {
+        console.error('Failed to save wheel:', error);
+        // Optionally set an error state to show in UI
+      }
+    },
+    resetLayout: () => {
         const { nodes, edges } = get();
-        const layoutResult = radialLayout(nodes, edges);
+        const layoutResult = treeLayout(nodes, edges);
         set({ nodes: layoutResult.nodes, edges: layoutResult.edges });
-      },
-      updateTitle: (newTitle: string) => {
-        set({ title: newTitle });
-      },
-      setNodeToFocus: (nodeId) => {
-        set({ nodeToFocus: nodeId });
-      },
-      setEditingNodeId: (nodeId) => {
-        set({ editingNodeId: nodeId });
-      },
-      undo: () => {
-        set(state => {
-          if (state.past.length === 0) return;
-          const lastState = state.past.pop();
-          if (lastState) {
-            state.future.unshift({ nodes: state.nodes, edges: state.edges });
-            state.nodes = lastState.nodes;
-            state.edges = lastState.edges;
-          }
-        });
-      },
-      redo: () => {
-        set(state => {
-          if (state.future.length === 0) return;
-          const nextState = state.future.shift();
-          if (nextState) {
-            state.past.push({ nodes: state.nodes, edges: state.edges });
-            state.nodes = nextState.nodes;
-            state.edges = nextState.edges;
-          }
-        });
-      },
-    };
-  })
-);
-// Sync userId from authStore to wheelStore
-useAuthStore.subscribe(
-  (state, prevState) => {
-    if (state.user?.id !== prevState.user?.id) {
-      useWheelStore.setState({ userId: state.user?.id || null });
     }
-  }
+  }))
 );
 export default useWheelStore;
