@@ -10,7 +10,7 @@ import {
   Node,
   NodeTypes,
 } from '@xyflow/react';
-import { Save, Share2, LayoutPanelLeft, Download, Trash2, Palette } from 'lucide-react';
+import { Save, Share2, LayoutPanelLeft, Download, Trash2, Palette, Undo, Redo } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { toPng, toSvg } from 'html-to-image';
@@ -22,7 +22,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu';
 import type { WheelNode } from '@shared/types';
 import '@xyflow/react/dist/style.css';
-
 const COLORS = ['#3b82f6', '#0ea5e9', '#14b8a6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 function downloadImage(dataUrl: string, name: string) {
   const a = document.createElement('a');
@@ -42,6 +41,10 @@ function Canvas() {
   const resetLayout = useWheelStore(s => s.resetLayout);
   const deleteNode = useWheelStore(s => s.deleteNode);
   const updateNodeColor = useWheelStore(s => s.updateNodeColor);
+  const undo = useWheelStore(s => s.undo);
+  const redo = useWheelStore(s => s.redo);
+  const pastStates = useWheelStore(s => s.past);
+  const futureStates = useWheelStore(s => s.future);
   const nodeTypes: NodeTypes = useMemo(() => ({ custom: CustomNode }), []);
   const { getNodes } = useReactFlow();
   const [contextMenuNode, setContextMenuNode] = React.useState<Node<WheelNode> | null>(null);
@@ -82,6 +85,8 @@ function Canvas() {
   };
   useHotkeys('mod+s', (e) => { e.preventDefault(); handleSave(); }, { preventDefault: true });
   useHotkeys('mod+r', (e) => { e.preventDefault(); handleResetLayout(); }, { preventDefault: true });
+  useHotkeys('mod+z', (e) => { e.preventDefault(); undo(); }, { preventDefault: true });
+  useHotkeys('mod+shift+z', (e) => { e.preventDefault(); redo(); }, { preventDefault: true });
   const onNodeContextMenu = (event: React.MouseEvent, node: Node<WheelNode>) => {
     event.preventDefault();
     setContextMenuNode(node);
@@ -123,6 +128,8 @@ function Canvas() {
         )}
       </ContextMenu>
       <div className="absolute top-4 right-4 flex gap-2">
+        <Button variant="outline" size="icon" onClick={undo} disabled={pastStates.length === 0} title="Undo (Cmd+Z)"><Undo className="w-4 h-4" /></Button>
+        <Button variant="outline" size="icon" onClick={redo} disabled={futureStates.length === 0} title="Redo (Cmd+Shift+Z)"><Redo className="w-4 h-4" /></Button>
         <Button variant="outline" size="icon" onClick={handleResetLayout} title="Reset Layout (Cmd+R)"><LayoutPanelLeft className="w-4 h-4" /></Button>
         <Button variant="outline" size="icon" onClick={handleShare} title="Share"><Share2 className="w-4 h-4" /></Button>
         <DropdownMenu>
