@@ -119,14 +119,12 @@ function Canvas() {
             <ContextMenuItem onSelect={() => { if (contextMenuNode) deleteNode(contextMenuNode.id); }}>
               <Trash2 className="w-4 h-4 mr-2" /> Delete Node
             </ContextMenuItem>
-            <ContextMenuContent>
-              <div className="flex items-center px-2 py-1.5 text-sm font-semibold"><Palette className="w-4 h-4 mr-2" /> Change Color</div>
-              <div className="p-2 grid grid-cols-4 gap-1">
-                {COLORS.map(color => (
-                  <button key={color} style={{ backgroundColor: color }} className="w-6 h-6 rounded-full border" onClick={() => { if (contextMenuNode) updateNodeColor(contextMenuNode.id, color); }} />
-                ))}
-              </div>
-            </ContextMenuContent>
+            <div className="flex items-center px-2 py-1.5 text-sm font-semibold"><Palette className="w-4 h-4 mr-2" /> Change Color</div>
+            <div className="p-2 grid grid-cols-4 gap-1">
+              {COLORS.map(color => (
+                <button key={color} style={{ backgroundColor: color }} className="w-6 h-6 rounded-full border" onClick={() => { if (contextMenuNode) updateNodeColor(contextMenuNode.id, color); }} />
+              ))}
+            </div>
           </ContextMenuContent>
         )}
       </ContextMenu>
