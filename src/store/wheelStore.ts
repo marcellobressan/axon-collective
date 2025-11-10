@@ -34,15 +34,25 @@ const useWheelStore = create<RFState>()(
     isLoading: true,
     error: null,
     fetchWheel: async (id) => {
-      set({ isLoading: true, error: null, wheelId: id });
+      const isInitialLoad = get().wheelId !== id || get().nodes.length === 0;
+      if (isInitialLoad) {
+        set({ isLoading: true, error: null, wheelId: id });
+      } else {
+        set({ error: null });
+      }
       try {
         const wheel = await api<Wheel>(`/api/wheels/${id}`);
-        const layoutResult = treeLayout(wheel.nodes, wheel.edges);
+        // For background updates, we don't want to re-run the layout
+        // if the node/edge count is the same, to avoid disrupting user's manual layout.
+        // A more sophisticated merge would be needed for a real production app.
+        const shouldRunLayout = isInitialLoad || get().nodes.length !== wheel.nodes.length || get().edges.length !== wheel.edges.length;
+        const layoutResult = shouldRunLayout ? treeLayout(wheel.nodes, wheel.edges) : { nodes: wheel.nodes, edges: wheel.edges };
         set({
           title: wheel.title,
           nodes: layoutResult.nodes,
           edges: layoutResult.edges,
           isLoading: false,
+          wheelId: id,
         });
       } catch (error) {
         console.error('Failed to fetch wheel:', error);

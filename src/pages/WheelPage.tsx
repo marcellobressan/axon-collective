@@ -13,6 +13,10 @@ export function WheelPage() {
   useEffect(() => {
     if (wheelId) {
       fetchWheel(wheelId);
+      const intervalId = setInterval(() => {
+        fetchWheel(wheelId);
+      }, 5000); // Poll every 5 seconds
+      return () => clearInterval(intervalId); // Cleanup on unmount
     }
   }, [wheelId, fetchWheel]);
   return (

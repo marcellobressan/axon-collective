@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Handle, Position, NodeProps, useReactFlow } from '@xyflow/react';
+import { Handle, Position, NodeProps, useReactFlow, Node } from '@xyflow/react';
 import { PlusCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import useWheelStore from '@/store/wheelStore';
-import type { WheelNodeData } from '@shared/types';
+import type { WheelNodeData, WheelNode } from '@shared/types';
 const tierColors = [
   'bg-indigo-500 border-indigo-600', // Tier 0 (Central)
   'bg-sky-500 border-sky-600',       // Tier 1
@@ -36,7 +36,7 @@ function CustomNode({ id, data, selected }: NodeProps<WheelNodeData>) {
     }
   };
   const handleAddNode = useCallback(() => {
-    const thisNode = getNode(id);
+    const thisNode = getNode(id) as Node<WheelNodeData> | undefined;
     if (thisNode) {
       addNode(thisNode);
     }

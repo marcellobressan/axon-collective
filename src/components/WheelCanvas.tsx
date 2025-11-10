@@ -44,6 +44,15 @@ function Canvas() {
       error: 'Could not save the wheel.',
     });
   };
+  const handleShare = () => {
+    const url = window.location.href;
+    navigator.clipboard.writeText(url).then(() => {
+      toast.success('Link copied to clipboard!');
+    }, (err) => {
+      toast.error('Failed to copy link.');
+      console.error('Could not copy text: ', err);
+    });
+  };
   if (isLoading) {
     return <Skeleton className="w-full h-full rounded-lg" />;
   }
@@ -74,7 +83,7 @@ function Canvas() {
         <Button variant="outline" size="icon" onClick={resetLayout} title="Reset Layout">
           <LayoutPanelLeft className="w-4 h-4" />
         </Button>
-        <Button variant="outline" size="icon" onClick={() => {}} title="Share (coming soon)">
+        <Button variant="outline" size="icon" onClick={handleShare} title="Share">
           <Share2 className="w-4 h-4" />
         </Button>
         <Button onClick={handleSave} title="Save Wheel">
