@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Handle, Position, NodeProps, useReactFlow, Node } from '@xyflow/react';
+import { Handle, Position, NodeProps, useReactFlow } from '@xyflow/react';
 import { PlusCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import useWheelStore from '@/store/wheelStore';
-import type { WheelNodeData, WheelNode } from '@shared/types';
+import type { WheelNode } from '@shared/types';
 function CustomNode({ id, data, selected }: NodeProps<WheelNode>) {
-  const { updateNodeLabel, addNode } = useWheelStore.getState();
+  const updateNodeLabel = useWheelStore(s => s.updateNodeLabel);
+  const addNode = useWheelStore(s => s.addNode);
+  const nodeToFocus = useWheelStore(s => s.nodeToFocus);
+  const setNodeToFocus = useWheelStore(s => s.setNodeToFocus);
   const [isEditing, setIsEditing] = useState(false);
   const [label, setLabel] = useState(data.label);
   const [isPulsing, setIsPulsing] = useState(false);
@@ -53,6 +56,13 @@ function CustomNode({ id, data, selected }: NodeProps<WheelNode>) {
       }
     }
   }, [data.label, isEditing, label]);
+  // Effect to handle auto-focusing new nodes
+  useEffect(() => {
+    if (nodeToFocus === id) {
+      setIsEditing(true);
+      setNodeToFocus(null); // Consume the focus event
+    }
+  }, [id, nodeToFocus, setNodeToFocus]);
   const nodeColor = data.color || '#6b7280'; // Default to gray
   return (
     <motion.div

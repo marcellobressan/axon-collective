@@ -13,6 +13,7 @@ export type RFState = {
   viewport: Viewport | null;
   isLoading: boolean;
   error: string | null;
+  nodeToFocus: string | null;
   fetchWheel: (id: string) => Promise<void>;
   setNodes: (nodes: WheelNode[]) => void;
   setEdges: (edges: WheelEdge[]) => void;
@@ -26,6 +27,7 @@ export type RFState = {
   saveWheel: () => Promise<void>;
   resetLayout: () => void;
   updateTitle: (newTitle: string) => void;
+  setNodeToFocus: (nodeId: string | null) => void;
 };
 const tierColors = ['#3b82f6', '#0ea5e9', '#14b8a6', '#f59e0b']; // blue, sky, teal, amber
 const useWheelStore = create<RFState>()(
@@ -37,6 +39,7 @@ const useWheelStore = create<RFState>()(
     viewport: null,
     isLoading: true,
     error: null,
+    nodeToFocus: null,
     fetchWheel: async (id) => {
       const isInitialLoad = get().wheelId !== id || get().nodes.length === 0;
       if (isInitialLoad) {
@@ -146,7 +149,7 @@ const useWheelStore = create<RFState>()(
         target: newNode.id,
       };
       const { nodes, edges } = treeLayout([...get().nodes, newNode], [...get().edges, newEdge]);
-      set({ nodes, edges });
+      set({ nodes, edges, nodeToFocus: newNode.id });
     },
     saveWheel: async () => {
       const { wheelId, title, nodes, edges } = get();
@@ -171,7 +174,10 @@ const useWheelStore = create<RFState>()(
     },
     updateTitle: (newTitle: string) => {
       set({ title: newTitle });
-    }
+    },
+    setNodeToFocus: (nodeId) => {
+      set({ nodeToFocus: nodeId });
+    },
   }))
 );
 export default useWheelStore;
