@@ -22,19 +22,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu';
 import type { WheelNode } from '@shared/types';
 import '@xyflow/react/dist/style.css';
-const selector = (s: any) => ({
-  nodes: s.nodes,
-  edges: s.edges,
-  onNodesChange: s.onNodesChange,
-  onEdgesChange: s.onEdgesChange,
-  onConnect: s.onConnect,
-  isLoading: s.isLoading,
-  error: s.error,
-  saveWheel: s.saveWheel,
-  resetLayout: s.resetLayout,
-  deleteNode: s.deleteNode,
-  updateNodeColor: s.updateNodeColor,
-});
+
 const COLORS = ['#3b82f6', '#0ea5e9', '#14b8a6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 function downloadImage(dataUrl: string, name: string) {
   const a = document.createElement('a');
@@ -43,14 +31,20 @@ function downloadImage(dataUrl: string, name: string) {
   a.click();
 }
 function Canvas() {
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, isLoading, error, saveWheel, resetLayout, deleteNode, updateNodeColor } = useWheelStore(selector);
-  const [localNodes, setLocalNodes, onLocalNodesChange] = useNodesState([]);
-  const [localEdges, setLocalEdges, onLocalEdgesChange] = useEdgesState([]);
+  const nodes = useWheelStore(s => s.nodes);
+  const edges = useWheelStore(s => s.edges);
+  const onNodesChange = useWheelStore(s => s.onNodesChange);
+  const onEdgesChange = useWheelStore(s => s.onEdgesChange);
+  const onConnect = useWheelStore(s => s.onConnect);
+  const isLoading = useWheelStore(s => s.isLoading);
+  const error = useWheelStore(s => s.error);
+  const saveWheel = useWheelStore(s => s.saveWheel);
+  const resetLayout = useWheelStore(s => s.resetLayout);
+  const deleteNode = useWheelStore(s => s.deleteNode);
+  const updateNodeColor = useWheelStore(s => s.updateNodeColor);
   const nodeTypes: NodeTypes = useMemo(() => ({ custom: CustomNode }), []);
   const { getNodes } = useReactFlow();
   const [contextMenuNode, setContextMenuNode] = React.useState<Node<WheelNode> | null>(null);
-  useEffect(() => { setLocalNodes(nodes); }, [nodes, setLocalNodes]);
-  useEffect(() => { setLocalEdges(edges); }, [edges, setLocalEdges]);
   const handleSave = async () => {
     const promise = saveWheel();
     toast.promise(promise, {
@@ -99,8 +93,8 @@ function Canvas() {
       <ContextMenu>
         <ContextMenuTrigger className="w-full h-full">
           <ReactFlow
-            nodes={localNodes}
-            edges={localEdges}
+            nodes={nodes}
+            edges={edges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
