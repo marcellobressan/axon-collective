@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import {
   ReactFlow,
   Controls,
@@ -12,10 +12,12 @@ import {
   getIncomers,
   getOutgoers,
 } from '@xyflow/react';
-import { Save, Share2, LayoutPanelLeft, Download, Trash2, Palette, Undo, Redo, Edit, Eye, Search, X, Presentation } from 'lucide-react';
+import { Save, Share2, LayoutPanelLeft, Download, Trash2, Palette, Undo, Redo, Edit, Eye, Search, X, Presentation, FileText, Loader2 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { toPng, toSvg } from 'html-to-image';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import useWheelStore from '@/store/wheelStore';
 import CustomNode from './CustomNode';
 import LabeledEdge from './LabeledEdge';
@@ -27,6 +29,8 @@ import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } 
 import type { WheelNode } from '@shared/types';
 import { TIER_RADII } from '@/lib/layout';
 import { cn } from '@/lib/utils';
+import { analyzeWheel, ReportData } from '@/lib/report-analyzer';
+import { ReportPreview } from './ReportPreview';
 import '@xyflow/react/dist/style.css';
 const COLORS = ['#3b82f6', '#0ea5e9', '#14b8a6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 function downloadImage(dataUrl: string, name: string) {
@@ -54,6 +58,7 @@ function TierBackground() {
   );
 }
 function Canvas() {
+  const storeTitle = useWheelStore(s => s.title);
   const storeNodes = useWheelStore(s => s.nodes);
   const storeEdges = useWheelStore(s => s.edges);
   const onNodesChange = useWheelStore(s => s.onNodesChange);
@@ -77,6 +82,9 @@ function Canvas() {
   const [focusNodeId, setFocusNodeId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isPresentationMode, setIsPresentationMode] = useState(false);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [reportData, setReportData] = useState<ReportData | null>(null);
+  const reportPreviewRef = useRef<HTMLDivElement>(null);
   const { nodes, edges } = useMemo(() => {
     if (searchQuery) {
       const lowerCaseQuery = searchQuery.toLowerCase();
@@ -123,6 +131,48 @@ function Canvas() {
     }
     return { nodes: storeNodes.map(n => ({...n, className: ''})), edges: storeEdges.map(e => ({...e, className: ''})) };
   }, [focusNodeId, storeNodes, storeEdges, searchQuery]);
+  useEffect(() => {
+    if (reportData && reportPreviewRef.current) {
+      const generatePdf = async () => {
+        try {
+          const canvas = await html2canvas(reportPreviewRef.current!, { scale: 2 });
+          const imgData = canvas.toDataURL('image/png');
+          const pdf = new jsPDF('p', 'mm', 'a4');
+          const pdfWidth = pdf.internal.pageSize.getWidth();
+          const pdfHeight = pdf.internal.pageSize.getHeight();
+          const imgWidth = canvas.width;
+          const imgHeight = canvas.height;
+          const ratio = imgWidth / imgHeight;
+          const width = pdfWidth;
+          const height = width / ratio;
+          pdf.addImage(imgData, 'PNG', 0, 0, width, height > pdfHeight ? pdfHeight : height);
+          pdf.save(`Axon-Report-${storeTitle.replace(/\s/g, '_')}.pdf`);
+          toast.success('Report downloaded successfully!');
+        } catch (err) {
+          console.error("Failed to generate PDF:", err);
+          toast.error('Failed to generate PDF report.');
+        } finally {
+          setReportData(null); // Clean up
+          setIsGeneratingReport(false);
+        }
+      };
+      // Delay to ensure component is fully rendered
+      const timer = setTimeout(generatePdf, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [reportData, storeTitle]);
+  const handleGenerateReport = async () => {
+    setIsGeneratingReport(true);
+    toast.info('Generating AI-powered report...');
+    try {
+      const analysis = analyzeWheel(storeNodes, storeEdges, storeTitle);
+      setReportData(analysis);
+    } catch (err) {
+      console.error("Failed to analyze wheel:", err);
+      toast.error('Failed to analyze wheel data.');
+      setIsGeneratingReport(false);
+    }
+  };
   const handleSave = async () => {
     const promise = saveWheel();
     toast.promise(promise, {
@@ -279,6 +329,10 @@ function Canvas() {
               <DropdownMenuItem onSelect={() => handleExport('svg')}>Export as SVG</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <Button variant="outline" onClick={handleGenerateReport} disabled={isGeneratingReport} title="Generate AI Report">
+            {isGeneratingReport ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileText className="w-4 h-4 mr-2" />}
+            Report
+          </Button>
           <Button onClick={handleSave} title="Save Wheel (Cmd+S)"><Save className="w-4 h-4 mr-2" />Save</Button>
         </div>
         <Button variant="outline" size="icon" onClick={() => setIsPresentationMode(p => !p)} title={isPresentationMode ? "Exit Presentation Mode" : "Enter Presentation Mode"}>
@@ -286,6 +340,10 @@ function Canvas() {
         </Button>
       </div>
       <Toaster richColors />
+      {/* Hidden container for rendering the report for PDF generation */}
+      <div className="absolute -z-10 -left-[9999px] top-0">
+        <ReportPreview ref={reportPreviewRef} data={reportData} />
+      </div>
     </div>
   );
 }
