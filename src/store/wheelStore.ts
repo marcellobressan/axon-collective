@@ -5,22 +5,14 @@ import type { Connection, EdgeChange, NodeChange, Viewport } from '@xyflow/react
 import { addEdge, applyEdgeChanges, applyNodeChanges, getConnectedEdges } from '@xyflow/react';
 import { api } from '@/lib/api-client';
 import { radialLayout } from '@/lib/layout';
-import { v4 as uuidv4 } from 'uuid';
+import useAuthStore from './authStore';
 type HistoryState = {
   nodes: WheelNode[];
   edges: WheelEdge[];
 };
-const getUserId = (): string => {
-  let userId = localStorage.getItem('futures-wheel-hub-user-id');
-  if (!userId) {
-    userId = uuidv4();
-    localStorage.setItem('futures-wheel-hub-user-id', userId);
-  }
-  return userId;
-};
 export type RFState = {
   wheelId: string | null;
-  userId: string;
+  userId: string | null;
   title: string;
   nodes: WheelNode[];
   edges: WheelEdge[];
@@ -67,7 +59,7 @@ const useWheelStore = create<RFState>()(
     };
     return {
       wheelId: null,
-      userId: getUserId(),
+      userId: useAuthStore.getState().user?.id || null,
       title: '',
       nodes: [],
       edges: [],
@@ -81,7 +73,7 @@ const useWheelStore = create<RFState>()(
       ownerId: null,
       visibility: 'private',
       fetchWheel: async (id) => {
-        const { userId } = get();
+        const userId = useAuthStore.getState().user?.id;
         const isInitialLoad = get().wheelId !== id || get().nodes.length === 0;
         if (isInitialLoad) {
           set({ isLoading: true, error: null, wheelId: id, past: [], future: [] });
@@ -100,6 +92,7 @@ const useWheelStore = create<RFState>()(
               wheelId: id,
               ownerId: remoteWheel.ownerId,
               visibility: remoteWheel.visibility,
+              userId: userId,
             });
           } else {
             set(state => {
@@ -283,8 +276,9 @@ const useWheelStore = create<RFState>()(
         });
       },
       castVote: async (nodeId, vote) => {
-        const { wheelId, userId } = get();
-        if (!wheelId) return;
+        const { wheelId } = get();
+        const userId = useAuthStore.getState().user?.id;
+        if (!wheelId || !userId) return;
         set(state => {
           const node = state.nodes.find(n => n.id === nodeId);
           if (node) {
@@ -310,8 +304,9 @@ const useWheelStore = create<RFState>()(
         }
       },
       saveWheel: async () => {
-        const { wheelId, title, nodes, edges, userId } = get();
-        if (!wheelId) return;
+        const { wheelId, title, nodes, edges } = get();
+        const userId = useAuthStore.getState().user?.id;
+        if (!wheelId || !userId) return;
         try {
           const nodesToSave = nodes.map(({ id, position, data, type, width, height, hidden }) => ({
             id, position, data, type, width, height, hidden
@@ -329,8 +324,9 @@ const useWheelStore = create<RFState>()(
         }
       },
       updateWheelVisibility: async (visibility) => {
-        const { wheelId, userId } = get();
-        if (!wheelId) return;
+        const { wheelId } = get();
+        const userId = useAuthStore.getState().user?.id;
+        if (!wheelId || !userId) return;
         const previousVisibility = get().visibility;
         set({ visibility }); // Optimistic update
         try {
@@ -383,5 +379,12 @@ const useWheelStore = create<RFState>()(
       },
     };
   })
+);
+// Sync userId from authStore to wheelStore
+useAuthStore.subscribe(
+  (state) => state.user,
+  (user) => {
+    useWheelStore.setState({ userId: user?.id || null });
+  }
 );
 export default useWheelStore;

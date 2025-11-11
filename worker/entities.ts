@@ -3,13 +3,18 @@
  */
 import { IndexedEntity } from "./core-utils";
 import type { User, Chat, ChatMessage, Wheel } from "@shared/types";
-import { MOCK_CHAT_MESSAGES, MOCK_CHATS, MOCK_USERS } from "@shared/mock-data";
+import { MOCK_CHAT_MESSAGES, MOCK_CHATS } from "@shared/mock-data";
 // USER ENTITY: one DO instance per user
 export class UserEntity extends IndexedEntity<User> {
   static readonly entityName = "user";
   static readonly indexName = "users";
-  static readonly initialState: User = { id: "", name: "" };
-  static seedData = MOCK_USERS;
+  static readonly initialState: User = { id: "", name: "", email: "", password: "" };
+  // We can't query by email with this simple setup, so we'll list all and filter.
+  // In a real app, you'd use a secondary index or a different storage solution.
+  static async findByEmail(env: Env, email: string): Promise<User | null> {
+    const { items } = await UserEntity.list(env);
+    return items.find(u => u.email.toLowerCase() === email.toLowerCase()) || null;
+  }
 }
 // CHAT BOARD ENTITY: one DO instance per chat board, stores its own messages
 export type ChatBoardState = Chat & { messages: ChatMessage[] };

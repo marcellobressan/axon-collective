@@ -1,23 +1,10 @@
 import { useNavigate } from 'react-router-dom';
-import { v4 as uuidv4 } from 'uuid';
 import { BrainCircuit, Zap, Users } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ThemeToggle';
-const getUserId = (): string => {
-  let userId = localStorage.getItem('futures-wheel-hub-user-id');
-  if (!userId) {
-    userId = uuidv4();
-    localStorage.setItem('futures-wheel-hub-user-id', userId);
-  }
-  return userId;
-};
 export function LandingPage() {
   const navigate = useNavigate();
-  const handleSignIn = () => {
-    getUserId(); // Ensures user ID is set
-    navigate('/dashboard');
-  };
   const featureVariants = {
     hidden: { opacity: 0, y: 20 },
     visible: (i: number) => ({
@@ -39,7 +26,7 @@ export function LandingPage() {
             <BrainCircuit className="w-8 h-8 text-indigo-500" />
             <span className="text-2xl font-bold font-display">Futures Wheel Hub</span>
           </div>
-          <Button onClick={handleSignIn}>Sign In</Button>
+          <Button onClick={() => navigate('/login')}>Sign In</Button>
         </header>
         {/* Hero Section */}
         <main className="py-20 md:py-32 text-center">
@@ -55,7 +42,7 @@ export function LandingPage() {
               A visually stunning, real-time collaborative tool for futures wheel brainstorming and strategic foresight. Uncover the ripple effects of any idea.
             </p>
             <div className="mt-10">
-              <Button size="lg" onClick={handleSignIn} className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-6 text-lg font-semibold shadow-lg hover:-translate-y-1 transition-transform duration-200">
+              <Button size="lg" onClick={() => navigate('/register')} className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-6 text-lg font-semibold shadow-lg hover:-translate-y-1 transition-transform duration-200">
                 Get Started for Free
               </Button>
             </div>

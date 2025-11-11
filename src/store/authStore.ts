@@ -12,11 +12,10 @@ type AuthActions = {
   login: (credentials: Pick<User, 'email' | 'password'>) => Promise<void>;
   logout: () => void;
   setUser: (user: User | null) => void;
-  updateUser: (userId: string, data: Partial<Pick<User, 'name' | 'password'>>) => Promise<void>;
 };
 const useAuthStore = create<AuthState & AuthActions>()(
   persist(
-    immer((set, get) => ({
+    immer((set) => ({
       user: null,
       isAuthenticated: false,
       register: async (userData) => {
@@ -51,17 +50,6 @@ const useAuthStore = create<AuthState & AuthActions>()(
         set((state) => {
           state.user = user;
           state.isAuthenticated = !!user;
-        });
-      },
-      updateUser: async (userId, data) => {
-        const updatedUser = await api<User>(`/api/users/${userId}`, {
-          method: 'PUT',
-          body: JSON.stringify({ ...data, userId }),
-        });
-        set(state => {
-          if (state.user) {
-            state.user.name = updatedUser.name;
-          }
         });
       },
     })),

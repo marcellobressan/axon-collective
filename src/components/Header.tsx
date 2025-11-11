@@ -2,10 +2,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { BrainCircuit, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import useAuthStore from '@/store/authStore';
 export function Header() {
   const navigate = useNavigate();
+  const logout = useAuthStore((s) => s.logout);
   const handleLogout = () => {
-    localStorage.removeItem('futures-wheel-hub-user-id');
+    logout();
     navigate('/');
   };
   return (

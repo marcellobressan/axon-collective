@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Plus, MoreVertical, Trash2, Copy, Eye, Lock, Globe, Sparkles } from 'lucide-react';
-import { v4 as uuidv4 } from 'uuid';
 import { formatDistanceToNow } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,14 +14,7 @@ import { Toaster, toast } from 'sonner';
 import { api } from '@/lib/api-client';
 import type { Wheel } from '@shared/types';
 import { Header } from '@/components/Header';
-const getUserId = (): string => {
-  let userId = localStorage.getItem('futures-wheel-hub-user-id');
-  if (!userId) {
-    userId = uuidv4();
-    localStorage.setItem('futures-wheel-hub-user-id', userId);
-  }
-  return userId;
-};
+import useAuthStore from '@/store/authStore';
 const FIRST_VISIT_KEY = 'futures-wheel-hub-has-visited';
 export function DashboardPage() {
   const [wheels, setWheels] = useState<Wheel[]>([]);
@@ -30,8 +22,10 @@ export function DashboardPage() {
   const [newWheelTitle, setNewWheelTitle] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const navigate = useNavigate();
-  const userId = getUserId();
+  const user = useAuthStore((s) => s.user);
+  const userId = user?.id;
   useEffect(() => {
+    if (!userId) return;
     const fetchWheels = async () => {
       try {
         setIsLoading(true);
@@ -66,7 +60,7 @@ export function DashboardPage() {
     });
   }, [userId]);
   const handleCreateWheel = async () => {
-    if (!newWheelTitle.trim()) {
+    if (!newWheelTitle.trim() || !userId) {
       toast.error('Please enter a title for your new wheel.');
       return;
     }
@@ -82,6 +76,7 @@ export function DashboardPage() {
     }
   };
   const handleDeleteWheel = async (wheelId: string) => {
+    if (!userId) return;
     const promise = api(`/api/wheels/${wheelId}?userId=${userId}`, { method: 'DELETE' });
     toast.promise(promise, {
       loading: 'Deleting wheel...',
