@@ -90,6 +90,18 @@ function CustomNode({ id, data, selected }: NodeProps<WheelNode>) {
   const nodeColor = data.color || '#6b7280'; // Default to gray
   const probability = data.probability ?? 0;
   const userVote = data.votes?.[userId];
+  // Visuals for probability ring
+  const normalizedProbability = Math.max(0, (probability - 1) / 4); // Normalize 1-5 scale to 0-1
+  const radius = 68; // w-36 is 144px, radius is 72. A bit smaller for padding.
+  const circumference = 2 * Math.PI * radius;
+  const strokeOffset = circumference * (1 - normalizedProbability);
+  const getProbabilityColor = (probValue: number) => {
+    if (probValue === 0) return 'hsl(var(--muted-foreground))';
+    // Interpolate from red (0) to yellow (0.5) to green (1)
+    const hue = normalizedProbability * 120;
+    return `hsl(${hue}, 80%, 50%)`;
+  };
+  const probabilityColor = getProbabilityColor(probability);
   return (
     <>
       <motion.div
@@ -104,24 +116,51 @@ function CustomNode({ id, data, selected }: NodeProps<WheelNode>) {
         )}
         onDoubleClick={handleDoubleClick}
       >
-        <Handle type="target" position={Position.Top} className="!bg-teal-500 w-3 h-3 opacity-0" />
-        {isEditing ? (
-          <textarea
-            ref={textareaRef}
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-            onBlur={handleBlur}
-            onKeyDown={handleKeyDown}
-            className="w-full h-full bg-transparent text-white text-center text-sm font-medium resize-none focus:outline-none flex items-center justify-center"
-          />
-        ) : (
-          <div className="text-sm font-medium break-words">{label}</div>
+        {data.tier > 0 && (
+          <svg className="absolute inset-0 w-full h-full" viewBox="0 0 144 144" style={{ transform: 'rotate(-90deg)' }}>
+            <circle
+              cx="72"
+              cy="72"
+              r={radius}
+              stroke="hsl(var(--border))"
+              strokeWidth="4"
+              fill="transparent"
+              className="opacity-30"
+            />
+            <circle
+              cx="72"
+              cy="72"
+              r={radius}
+              stroke={probabilityColor}
+              strokeWidth="4"
+              fill="transparent"
+              strokeDasharray={circumference}
+              strokeDashoffset={strokeOffset}
+              strokeLinecap="round"
+              className="transition-all duration-500"
+            />
+          </svg>
         )}
+        <div className="relative z-10">
+          {isEditing ? (
+            <textarea
+              ref={textareaRef}
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              onBlur={handleBlur}
+              onKeyDown={handleKeyDown}
+              className="w-full h-full bg-transparent text-white text-center text-sm font-medium resize-none focus:outline-none flex items-center justify-center"
+            />
+          ) : (
+            <div className="text-sm font-medium break-words">{label}</div>
+          )}
+        </div>
+        <Handle type="target" position={Position.Top} className="!bg-teal-500 w-3 h-3 opacity-0" />
         <Handle type="source" position={Position.Bottom} className="!bg-rose-500 w-3 h-3 opacity-0" />
         {data.tier < 3 && (
           <button
             onClick={handleAddNode}
-            className="absolute -bottom-3 left-1/2 -translate-x-1/2 p-0.5 bg-background rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:scale-110"
+            className="absolute -bottom-3 left-1/2 -translate-x-1/2 p-0.5 bg-background rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:scale-110 z-20"
             aria-label="Add consequence"
           >
             <PlusCircle className="w-5 h-5 text-foreground/80 hover:text-foreground" />
@@ -130,7 +169,7 @@ function CustomNode({ id, data, selected }: NodeProps<WheelNode>) {
         {hasChildren && (
           <button
             onClick={handleToggleCollapse}
-            className="absolute -top-2 -right-2 w-6 h-6 bg-background rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform"
+            className="absolute -top-2 -right-2 w-6 h-6 bg-background rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform z-20"
             aria-label={data.collapsed ? 'Expand node' : 'Collapse node'}
           >
             {data.collapsed ? <Plus className="w-4 h-4 text-foreground" /> : <Minus className="w-4 h-4 text-foreground" />}
@@ -139,7 +178,7 @@ function CustomNode({ id, data, selected }: NodeProps<WheelNode>) {
         <Popover>
           <PopoverTrigger asChild>
             <button
-              className="absolute -top-2 -left-2 w-6 h-6 bg-background rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform"
+              className="absolute -top-2 -left-2 w-6 h-6 bg-background rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform z-20"
               aria-label="View description"
             >
               <Info className="w-4 h-4 text-foreground" />
@@ -171,7 +210,7 @@ function CustomNode({ id, data, selected }: NodeProps<WheelNode>) {
           <Popover>
             <PopoverTrigger asChild>
               <button
-                className="absolute top-1/2 -translate-y-1/2 -left-3 w-6 h-6 bg-background rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform"
+                className="absolute top-1/2 -translate-y-1/2 -left-3 w-6 h-6 bg-background rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform z-20"
                 aria-label="Vote on probability"
               >
                 <Vote className="w-4 h-4 text-foreground" />

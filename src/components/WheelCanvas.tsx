@@ -78,7 +78,6 @@ function Canvas() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isPresentationMode, setIsPresentationMode] = useState(false);
   const { nodes, edges } = useMemo(() => {
-    let filteredNodes = storeNodes;
     if (searchQuery) {
       const lowerCaseQuery = searchQuery.toLowerCase();
       const matchingNodeIds = new Set(
@@ -86,11 +85,15 @@ function Canvas() {
           .filter(n => n.data.label.toLowerCase().includes(lowerCaseQuery) || n.data.description?.toLowerCase().includes(lowerCaseQuery))
           .map(n => n.id)
       );
-      filteredNodes = storeNodes.map(n => ({
+      const filteredNodes = storeNodes.map(n => ({
         ...n,
-        className: cn(n.className, !matchingNodeIds.has(n.id) && 'opacity-20 transition-opacity'),
+        className: cn(
+          matchingNodeIds.has(n.id) ? 'search-highlight' : 'opacity-20 transition-opacity'
+        ),
       }));
-    } else if (focusNodeId) {
+      return { nodes: filteredNodes, edges: storeEdges.map(e => ({...e, className: 'opacity-20 transition-opacity'})) };
+    }
+    if (focusNodeId) {
       const focusNode = storeNodes.find(n => n.id === focusNodeId);
       if (focusNode) {
         const relatedNodes = new Set<string>([focusNodeId]);
@@ -109,16 +112,16 @@ function Canvas() {
         findConnections(focusNodeId);
         const styledNodes = storeNodes.map(node => ({
           ...node,
-          className: cn(node.className, !relatedNodes.has(node.id) && 'opacity-20 transition-opacity'),
+          className: cn(!relatedNodes.has(node.id) && 'opacity-20 transition-opacity'),
         }));
         const styledEdges = storeEdges.map(edge => ({
           ...edge,
-          className: cn(edge.className, !relatedEdges.has(edge.id) && 'opacity-20 transition-opacity'),
+          className: cn(!relatedEdges.has(edge.id) && 'opacity-20 transition-opacity'),
         }));
         return { nodes: styledNodes, edges: styledEdges };
       }
     }
-    return { nodes: filteredNodes, edges: storeEdges };
+    return { nodes: storeNodes.map(n => ({...n, className: ''})), edges: storeEdges.map(e => ({...e, className: ''})) };
   }, [focusNodeId, storeNodes, storeEdges, searchQuery]);
   const handleSave = async () => {
     const promise = saveWheel();
@@ -157,6 +160,7 @@ function Canvas() {
   };
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
+    setFocusNodeId(null);
     if (e.target.value) {
       const lowerCaseQuery = e.target.value.toLowerCase();
       const matchingNodes = storeNodes.filter(n => n.data.label.toLowerCase().includes(lowerCaseQuery) || n.data.description?.toLowerCase().includes(lowerCaseQuery));
