@@ -79,7 +79,7 @@ function CustomNode({ id, data, selected }: NodeProps<WheelNode>) {
     if (data.description !== description) {
       setDescription(data.description || '');
     }
-  }, [data.description, description]);
+  }, [data.description]);
   // Effect to handle auto-focusing new nodes
   useEffect(() => {
     if (nodeToFocus === id) {
