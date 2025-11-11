@@ -10,17 +10,32 @@ import {
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { RouteErrorBoundary } from '@/components/RouteErrorBoundary';
 import '@/index.css'
-import { HomePage } from '@/pages/HomePage'
+import { LandingPage } from '@/pages/LandingPage';
+import { DashboardPage } from '@/pages/DashboardPage';
 import { WheelPage } from '@/pages/WheelPage';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
 const router = createBrowserRouter([
   {
     path: "/",
-    element: <HomePage />,
+    element: <LandingPage />,
+    errorElement: <RouteErrorBoundary />,
+  },
+  {
+    path: "/dashboard",
+    element: (
+      <ProtectedRoute>
+        <DashboardPage />
+      </ProtectedRoute>
+    ),
     errorElement: <RouteErrorBoundary />,
   },
   {
     path: "/wheel/:wheelId",
-    element: <WheelPage />,
+    element: (
+      <ProtectedRoute>
+        <WheelPage />
+      </ProtectedRoute>
+    ),
     errorElement: <RouteErrorBoundary />,
   },
 ]);

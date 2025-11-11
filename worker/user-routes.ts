@@ -8,13 +8,12 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
   // WHEELS
   app.get('/api/wheels', async (c) => {
     const userId = c.req.query('userId');
-    const { items } = await WheelEntity.list(c.env);
-    if (userId) {
-      const userWheels = items.filter(w => w.ownerId === userId);
-      return ok(c, userWheels);
+    if (!userId) {
+      return bad(c, 'A user ID is required to fetch wheels.');
     }
-    const publicWheels = items.filter(w => w.visibility === 'public');
-    return ok(c, publicWheels);
+    const { items } = await WheelEntity.list(c.env);
+    const userWheels = items.filter(w => w.ownerId === userId);
+    return ok(c, userWheels);
   });
   app.post('/api/wheels', async (c) => {
     const { title, ownerId } = (await c.req.json()) as { title?: string, ownerId?: string };
