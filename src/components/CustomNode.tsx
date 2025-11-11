@@ -79,6 +79,7 @@ function CustomNode({ id, data, selected }: NodeProps<WheelNode>) {
     if (data.description !== description) {
       setDescription(data.description || '');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.description]);
   // Effect to handle auto-focusing new nodes
   useEffect(() => {
