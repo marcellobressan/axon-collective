@@ -28,6 +28,7 @@ export type RFState = {
   onEdgesChange: (changes: EdgeChange[]) => void;
   onConnect: (connection: Connection) => void;
   updateNodeLabel: (nodeId: string, label: string) => void;
+  updateNodeDescription: (nodeId: string, description: string) => void;
   updateNodeColor: (nodeId: string, color: string) => void;
   updateEdgeLabel: (edgeId: string, label: string) => void;
   deleteNode: (nodeId: string) => void;
@@ -144,6 +145,15 @@ const useWheelStore = create<RFState>()(
           const node = state.nodes.find((n) => n.id === nodeId);
           if (node) {
             node.data.label = label;
+          }
+        });
+      },
+      updateNodeDescription: (nodeId, description) => {
+        takeSnapshot();
+        set((state) => {
+          const node = state.nodes.find((n) => n.id === nodeId);
+          if (node) {
+            node.data.description = description;
           }
         });
       },

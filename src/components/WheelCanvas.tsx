@@ -12,7 +12,7 @@ import {
   getIncomers,
   getOutgoers,
 } from '@xyflow/react';
-import { Save, Share2, LayoutPanelLeft, Download, Trash2, Palette, Undo, Redo, Edit, Eye } from 'lucide-react';
+import { Save, Share2, LayoutPanelLeft, Download, Trash2, Palette, Undo, Redo, Edit, Eye, Search, X, Presentation } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { toPng, toSvg } from 'html-to-image';
@@ -20,6 +20,7 @@ import useWheelStore from '@/store/wheelStore';
 import CustomNode from './CustomNode';
 import LabeledEdge from './LabeledEdge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu';
@@ -70,38 +71,55 @@ function Canvas() {
   const futureStates = useWheelStore(s => s.future);
   const nodeTypes: NodeTypes = useMemo(() => ({ custom: CustomNode }), []);
   const edgeTypes: EdgeTypes = useMemo(() => ({ labeled: LabeledEdge }), []);
-  const { getNodes, getEdges } = useReactFlow();
+  const { getNodes, getEdges, fitView } = useReactFlow();
   const [contextMenuNode, setContextMenuNode] = useState<Node<WheelNode> | null>(null);
   const [contextMenuEdge, setContextMenuEdge] = useState<Edge | null>(null);
   const [focusNodeId, setFocusNodeId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isPresentationMode, setIsPresentationMode] = useState(false);
   const { nodes, edges } = useMemo(() => {
-    if (!focusNodeId) return { nodes: storeNodes, edges: storeEdges };
-    const focusNode = storeNodes.find(n => n.id === focusNodeId);
-    if (!focusNode) return { nodes: storeNodes, edges: storeEdges };
-    const relatedNodes = new Set<string>([focusNodeId]);
-    const relatedEdges = new Set<string>();
-    const findConnections = (nodeId: string) => {
-      const incomers = getIncomers(storeNodes.find(n => n.id === nodeId)!, storeNodes, storeEdges);
-      const outgoers = getOutgoers(storeNodes.find(n => n.id === nodeId)!, storeNodes, storeEdges);
-      incomers.forEach(n => relatedNodes.add(n.id));
-      outgoers.forEach(n => relatedNodes.add(n.id));
-      storeEdges.forEach(edge => {
-        if (edge.source === nodeId || edge.target === nodeId) {
-          relatedEdges.add(edge.id);
-        }
-      });
-    };
-    findConnections(focusNodeId);
-    const styledNodes = storeNodes.map(node => ({
-      ...node,
-      className: cn(node.className, !relatedNodes.has(node.id) && 'opacity-20 transition-opacity'),
-    }));
-    const styledEdges = storeEdges.map(edge => ({
-      ...edge,
-      className: cn(edge.className, !relatedEdges.has(edge.id) && 'opacity-20 transition-opacity'),
-    }));
-    return { nodes: styledNodes, edges: styledEdges };
-  }, [focusNodeId, storeNodes, storeEdges]);
+    let filteredNodes = storeNodes;
+    if (searchQuery) {
+      const lowerCaseQuery = searchQuery.toLowerCase();
+      const matchingNodeIds = new Set(
+        storeNodes
+          .filter(n => n.data.label.toLowerCase().includes(lowerCaseQuery) || n.data.description?.toLowerCase().includes(lowerCaseQuery))
+          .map(n => n.id)
+      );
+      filteredNodes = storeNodes.map(n => ({
+        ...n,
+        className: cn(n.className, !matchingNodeIds.has(n.id) && 'opacity-20 transition-opacity'),
+      }));
+    } else if (focusNodeId) {
+      const focusNode = storeNodes.find(n => n.id === focusNodeId);
+      if (focusNode) {
+        const relatedNodes = new Set<string>([focusNodeId]);
+        const relatedEdges = new Set<string>();
+        const findConnections = (nodeId: string) => {
+          const incomers = getIncomers(storeNodes.find(n => n.id === nodeId)!, storeNodes, storeEdges);
+          const outgoers = getOutgoers(storeNodes.find(n => n.id === nodeId)!, storeNodes, storeEdges);
+          incomers.forEach(n => relatedNodes.add(n.id));
+          outgoers.forEach(n => relatedNodes.add(n.id));
+          storeEdges.forEach(edge => {
+            if (edge.source === nodeId || edge.target === nodeId) {
+              relatedEdges.add(edge.id);
+            }
+          });
+        };
+        findConnections(focusNodeId);
+        const styledNodes = storeNodes.map(node => ({
+          ...node,
+          className: cn(node.className, !relatedNodes.has(node.id) && 'opacity-20 transition-opacity'),
+        }));
+        const styledEdges = storeEdges.map(edge => ({
+          ...edge,
+          className: cn(edge.className, !relatedEdges.has(edge.id) && 'opacity-20 transition-opacity'),
+        }));
+        return { nodes: styledNodes, edges: styledEdges };
+      }
+    }
+    return { nodes: filteredNodes, edges: storeEdges };
+  }, [focusNodeId, storeNodes, storeEdges, searchQuery]);
   const handleSave = async () => {
     const promise = saveWheel();
     toast.promise(promise, {
@@ -137,6 +155,18 @@ function Canvas() {
       toast.success(`Exported as ${extension.toUpperCase()}`);
     });
   };
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+    if (e.target.value) {
+      const lowerCaseQuery = e.target.value.toLowerCase();
+      const matchingNodes = storeNodes.filter(n => n.data.label.toLowerCase().includes(lowerCaseQuery) || n.data.description?.toLowerCase().includes(lowerCaseQuery));
+      if (matchingNodes.length > 0) {
+        fitView({ nodes: matchingNodes, duration: 500, padding: 0.2 });
+      }
+    } else {
+      fitView({ duration: 500 });
+    }
+  };
   useHotkeys('mod+s', (e) => { e.preventDefault(); handleSave(); }, { preventDefault: true });
   useHotkeys('mod+r', (e) => { e.preventDefault(); handleResetLayout(); }, { preventDefault: true });
   useHotkeys('mod+z', (e) => { e.preventDefault(); undo(); }, { preventDefault: true });
@@ -153,9 +183,11 @@ function Canvas() {
   };
   const onNodeClick = useCallback((event: React.MouseEvent, node: Node) => {
     setFocusNodeId(node.id);
+    setSearchQuery('');
   }, []);
   const onPaneClick = useCallback(() => {
     setFocusNodeId(null);
+    setSearchQuery('');
   }, []);
   if (isLoading) return <Skeleton className="w-full h-full rounded-lg" />;
   if (error) return <div className="w-full h-full flex items-center justify-center bg-destructive/10 text-destructive-foreground rounded-lg"><p>Error: {error}</p></div>;
@@ -181,8 +213,9 @@ function Canvas() {
             proOptions={{ hideAttribution: true }}
             defaultEdgeOptions={{ type: 'labeled' }}
           >
-            <Background />
-            <Controls />
+            <div className={cn("transition-opacity", isPresentationMode && "opacity-0 pointer-events-none")}>
+              <Controls />
+            </div>
           </ReactFlow>
         </ContextMenuTrigger>
         <ContextMenuContent>
@@ -204,8 +237,6 @@ function Canvas() {
           )}
           {contextMenuEdge && (
             <ContextMenuItem onSelect={() => {
-              // This is a placeholder. The actual edit happens on double-click in LabeledEdge.
-              // We can use this to trigger a toast or guide.
               toast.info("Double-click the edge label to edit it.");
             }}>
               <Edit className="w-4 h-4 mr-2" /> Edit Label
@@ -213,21 +244,42 @@ function Canvas() {
           )}
         </ContextMenuContent>
       </ContextMenu>
-      <div className="absolute top-4 right-4 flex gap-2">
-        <Button variant="outline" size="icon" onClick={undo} disabled={pastStates.length === 0} title="Undo (Cmd+Z)"><Undo className="w-4 h-4" /></Button>
-        <Button variant="outline" size="icon" onClick={redo} disabled={futureStates.length === 0} title="Redo (Cmd+Shift+Z)"><Redo className="w-4 h-4" /></Button>
-        <Button variant="outline" size="icon" onClick={handleResetLayout} title="Reset Layout (Cmd+R)"><LayoutPanelLeft className="w-4 h-4" /></Button>
-        <Button variant="outline" size="icon" onClick={handleShare} title="Share"><Share2 className="w-4 h-4" /></Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon" title="Export"><Download className="w-4 h-4" /></Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuItem onSelect={() => handleExport('png')}>Export as PNG</DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => handleExport('svg')}>Export as SVG</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <Button onClick={handleSave} title="Save Wheel (Cmd+S)"><Save className="w-4 h-4 mr-2" />Save</Button>
+      <div className={cn("absolute top-4 left-4 z-10 transition-opacity", isPresentationMode && "opacity-0 pointer-events-none")}>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search nodes..."
+            value={searchQuery}
+            onChange={handleSearch}
+            className="pl-9 w-64"
+          />
+          {searchQuery && (
+            <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setSearchQuery('')}>
+              <X className="w-4 h-4" />
+            </Button>
+          )}
+        </div>
+      </div>
+      <div className="absolute top-4 right-4 flex gap-2 z-10">
+        <div className={cn("flex gap-2 transition-opacity", isPresentationMode && "opacity-0 pointer-events-none")}>
+          <Button variant="outline" size="icon" onClick={undo} disabled={pastStates.length === 0} title="Undo (Cmd+Z)"><Undo className="w-4 h-4" /></Button>
+          <Button variant="outline" size="icon" onClick={redo} disabled={futureStates.length === 0} title="Redo (Cmd+Shift+Z)"><Redo className="w-4 h-4" /></Button>
+          <Button variant="outline" size="icon" onClick={handleResetLayout} title="Reset Layout (Cmd+R)"><LayoutPanelLeft className="w-4 h-4" /></Button>
+          <Button variant="outline" size="icon" onClick={handleShare} title="Share"><Share2 className="w-4 h-4" /></Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" title="Export"><Download className="w-4 h-4" /></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onSelect={() => handleExport('png')}>Export as PNG</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => handleExport('svg')}>Export as SVG</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button onClick={handleSave} title="Save Wheel (Cmd+S)"><Save className="w-4 h-4 mr-2" />Save</Button>
+        </div>
+        <Button variant="outline" size="icon" onClick={() => setIsPresentationMode(p => !p)} title={isPresentationMode ? "Exit Presentation Mode" : "Enter Presentation Mode"}>
+          {isPresentationMode ? <X className="w-4 h-4" /> : <Presentation className="w-4 h-4" />}
+        </Button>
       </div>
       <Toaster richColors />
     </div>
