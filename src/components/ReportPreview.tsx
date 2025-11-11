@@ -32,12 +32,21 @@ export const ReportPreview = React.forwardRef<HTMLDivElement, ReportPreviewProps
         </section>
         <section className="mb-10">
           <h2 className="text-xl font-semibold border-b-2 border-indigo-200 pb-2 mb-4 text-gray-700">Key High-Probability Outcomes</h2>
-          <div className="space-y-3">
+          <div className="space-y-4">
             {data.keyOutcomes.length > 0 ? (
               data.keyOutcomes.map((outcome, index) => (
-                <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                  <p className="font-medium text-gray-800">{outcome.label} <span className="text-sm text-gray-500">(Tier {outcome.tier})</span></p>
-                  <p className={`font-bold text-lg ${getProbabilityColor(outcome.probability)}`}>{outcome.probability.toFixed(2)}</p>
+                <div key={index} className="p-3 bg-gray-50 rounded-lg">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="font-medium text-gray-800">{outcome.label} <span className="text-sm text-gray-500">(Tier {outcome.tier})</span></p>
+                      {outcome.description && (
+                        <p className="text-sm text-gray-600 mt-1 italic pl-2 border-l-2 border-gray-300">
+                          "{outcome.description}"
+                        </p>
+                      )}
+                    </div>
+                    <p className={`font-bold text-lg flex-shrink-0 ml-4 ${getProbabilityColor(outcome.probability)}`}>{outcome.probability.toFixed(2)}</p>
+                  </div>
                 </div>
               ))
             ) : (
@@ -52,14 +61,7 @@ export const ReportPreview = React.forwardRef<HTMLDivElement, ReportPreviewProps
               data.scenarios.map((scenario, index) => (
                 <div key={index} className="p-4 border border-gray-200 rounded-lg bg-white">
                   <h3 className="font-semibold text-indigo-700 mb-2">Scenario {index + 1}: Leading to "{scenario.path[scenario.path.length - 1].label}"</h3>
-                  <div className="flex items-center space-x-2 text-sm text-gray-600">
-                    {scenario.path.map((step, stepIndex) => (
-                      <React.Fragment key={stepIndex}>
-                        <span className={`px-2 py-1 rounded ${step.tier === 0 ? 'bg-indigo-100 font-bold' : 'bg-gray-100'}`}>{step.label}</span>
-                        {stepIndex < scenario.path.length - 1 && <span className="text-gray-400">&rarr;</span>}
-                      </React.Fragment>
-                    ))}
-                  </div>
+                  <p className="text-sm text-gray-700 leading-relaxed mb-2">{scenario.narrative}</p>
                   <p className="text-right mt-2 font-medium text-sm">Final Outcome Probability: <span className={`font-bold ${getProbabilityColor(scenario.finalOutcomeProbability)}`}>{scenario.finalOutcomeProbability.toFixed(2)}</span></p>
                 </div>
               ))
