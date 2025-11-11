@@ -382,9 +382,10 @@ const useWheelStore = create<RFState>()(
 );
 // Sync userId from authStore to wheelStore
 useAuthStore.subscribe(
-  (state) => state.user,
-  (user) => {
-    useWheelStore.setState({ userId: user?.id || null });
+  (state, prevState) => {
+    if (state.user?.id !== prevState.user?.id) {
+      useWheelStore.setState({ userId: state.user?.id || null });
+    }
   }
 );
 export default useWheelStore;

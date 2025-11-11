@@ -1,23 +1,16 @@
-
-
-
-import { IndexedEntity } from "./core-utils";
+import { IndexedEntity, type Env } from "./core-utils";
 import type { User, Chat, ChatMessage, Wheel } from "@shared/types";
-import { MOCK_CHAT_MESSAGES, MOCK_CHATS } from "@shared/mock-data";interface Env {id?: string | number;
-
-  [key: string]: unknown;
-}export class UserEntity extends IndexedEntity<User> {static readonly entityName = "user";
+import { MOCK_CHAT_MESSAGES, MOCK_CHATS } from "@shared/mock-data";
+export class UserEntity extends IndexedEntity<User> {
+  static readonly entityName = "user";
   static readonly indexName = "users";
   static readonly initialState: User = { id: "", name: "", email: "", password: "" };
-
-
   static async findByEmail(env: Env, email: string): Promise<User | null> {
     const { items } = await UserEntity.list(env);
     return items.find((u) => u.email.toLowerCase() === email.toLowerCase()) || null;
   }
 }
-
-export type ChatBoardState = Chat & {messages: ChatMessage[];};
+export type ChatBoardState = Chat & { messages: ChatMessage[] };
 const SEED_CHAT_BOARDS: ChatBoardState[] = MOCK_CHATS.map((c) => ({
   ...c,
   messages: MOCK_CHAT_MESSAGES.filter((m) => m.chatId === c.id)
@@ -37,7 +30,6 @@ export class ChatBoardEntity extends IndexedEntity<ChatBoardState> {
     return msg;
   }
 }
-
 export class WheelEntity extends IndexedEntity<Wheel> {
   static readonly entityName = "wheel";
   static readonly indexName = "wheels";
