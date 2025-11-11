@@ -146,7 +146,7 @@ function Canvas() {
           const width = pdfWidth;
           const height = width / ratio;
           pdf.addImage(imgData, 'PNG', 0, 0, width, height > pdfHeight ? pdfHeight : height);
-          pdf.save(`Axon-Report-${storeTitle.replace(/\s/g, '_')}.pdf`);
+          pdf.save(`Futures-Wheel-Hub-Report-${storeTitle.replace(/\s/g, '_')}.pdf`);
           toast.success('Report downloaded successfully!');
         } catch (err) {
           console.error("Failed to generate PDF:", err);
@@ -204,7 +204,7 @@ function Canvas() {
     exportFunc(document.querySelector('.react-flow__viewport') as HTMLElement, {
       backgroundColor: document.documentElement.classList.contains('dark') ? '#09090b' : '#ffffff',
     }).then((dataUrl) => {
-      downloadImage(dataUrl, `axon-collective-wheel.${extension}`);
+      downloadImage(dataUrl, `futures-wheel-hub.${extension}`);
       toast.success(`Exported as ${extension.toUpperCase()}`);
     });
   };
