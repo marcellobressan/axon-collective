@@ -27,6 +27,8 @@ export interface WheelNodeData extends Record<string, unknown> {
   color?: string;
   collapsed?: boolean;
   description?: string;
+  votes?: Record<string, number>;
+  probability?: number;
 }
 // We use the @xyflow/react types directly in the frontend,
 // but define a compatible structure for the backend to avoid dependency issues.

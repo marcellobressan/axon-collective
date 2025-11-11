@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { Env } from './core-utils';
 import { UserEntity, ChatBoardEntity, WheelEntity } from "./entities";
 import { ok, bad, notFound, isStr } from './core-utils';
-import type { Wheel } from "@shared/types";
+import type { Wheel, StoredNode } from "@shared/types";
 export function userRoutes(app: Hono<{ Bindings: Env }>) {
   app.get('/api/test', (c) => c.json({ success: true, data: { name: 'CF Workers Demo' }}));
   // WHEELS
@@ -49,6 +49,38 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     const deleted = await WheelEntity.delete(c.env, id);
     if (!deleted) return notFound(c, 'Wheel not found');
     return ok(c, { id, deleted });
+  });
+  app.post('/api/wheels/:id/nodes/:nodeId/vote', async (c) => {
+    const { id: wheelId, nodeId } = c.req.param();
+    const { userId, vote } = (await c.req.json()) as { userId?: string; vote?: number };
+    if (!isStr(userId) || typeof vote !== 'number' || !Number.isInteger(vote) || vote < 1 || vote > 5) {
+      return bad(c, 'userId and an integer vote (1-5) are required');
+    }
+    const wheel = new WheelEntity(c.env, wheelId);
+    if (!(await wheel.exists())) return notFound(c, 'Wheel not found');
+    let updatedNode: StoredNode | null = null;
+    await wheel.mutate(s => {
+      const node = s.nodes.find(n => n.id === nodeId);
+      if (!node) {
+        // This won't be sent to the client, but will stop the mutation.
+        // The notFound check below handles the client response.
+        throw new Error('Node not found');
+      }
+      if (!node.data.votes) {
+        node.data.votes = {};
+      }
+      node.data.votes[userId] = vote;
+      const votes = Object.values(node.data.votes);
+      const sum = votes.reduce((acc, v) => acc + v, 0);
+      node.data.probability = votes.length > 0 ? sum / votes.length : 0;
+      s.lastModified = Date.now();
+      updatedNode = node;
+      return s;
+    });
+    if (!updatedNode) {
+      return notFound(c, 'Node not found in wheel');
+    }
+    return ok(c, updatedNode);
   });
   // USERS
   app.get('/api/users', async (c) => {

@@ -1,16 +1,26 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import type { Wheel, WheelNode, WheelEdge } from '@shared/types';
+import type { Wheel, WheelNode, WheelEdge, StoredNode } from '@shared/types';
 import type { Connection, EdgeChange, NodeChange, Viewport } from '@xyflow/react';
 import { addEdge, applyEdgeChanges, applyNodeChanges, getConnectedEdges } from '@xyflow/react';
 import { api } from '@/lib/api-client';
 import { radialLayout } from '@/lib/layout';
+import { v4 as uuidv4 } from 'uuid';
 type HistoryState = {
   nodes: WheelNode[];
   edges: WheelEdge[];
 };
+const getUserId = (): string => {
+  let userId = localStorage.getItem('axon-user-id');
+  if (!userId) {
+    userId = uuidv4();
+    localStorage.setItem('axon-user-id', userId);
+  }
+  return userId;
+};
 export type RFState = {
   wheelId: string | null;
+  userId: string;
   title: string;
   nodes: WheelNode[];
   edges: WheelEdge[];
@@ -39,6 +49,7 @@ export type RFState = {
   setNodeToFocus: (nodeId: string | null) => void;
   setEditingNodeId: (nodeId: string | null) => void;
   toggleNodeCollapse: (nodeId: string) => void;
+  castVote: (nodeId: string, vote: number) => Promise<void>;
   undo: () => void;
   redo: () => void;
 };
@@ -53,6 +64,7 @@ const useWheelStore = create<RFState>()(
     };
     return {
       wheelId: null,
+      userId: getUserId(),
       title: '',
       nodes: [],
       edges: [],
@@ -260,6 +272,36 @@ const useWheelStore = create<RFState>()(
             }
           });
         });
+      },
+      castVote: async (nodeId, vote) => {
+        const { wheelId, userId } = get();
+        if (!wheelId) return;
+        // Optimistic update
+        set(state => {
+          const node = state.nodes.find(n => n.id === nodeId);
+          if (node) {
+            if (!node.data.votes) node.data.votes = {};
+            node.data.votes[userId] = vote;
+            const votes = Object.values(node.data.votes);
+            node.data.probability = votes.reduce((sum, v) => sum + v, 0) / votes.length;
+          }
+        });
+        try {
+          const updatedNode = await api<StoredNode>(`/api/wheels/${wheelId}/nodes/${nodeId}/vote`, {
+            method: 'POST',
+            body: JSON.stringify({ userId, vote }),
+          });
+          // Re-sync with server state
+          set(state => {
+            const node = state.nodes.find(n => n.id === nodeId);
+            if (node) {
+              node.data = updatedNode.data;
+            }
+          });
+        } catch (error) {
+          console.error('Failed to cast vote:', error);
+          // Here you might want to revert the optimistic update or show an error toast
+        }
       },
       saveWheel: async () => {
         const { wheelId, title, nodes, edges } = get();

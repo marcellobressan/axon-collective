@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Handle, Position, NodeProps, useReactFlow, useStore } from '@xyflow/react';
-import { PlusCircle, Plus, Minus, Info } from 'lucide-react';
+import { PlusCircle, Plus, Minus, Info, Vote } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import useWheelStore from '@/store/wheelStore';
@@ -8,6 +8,7 @@ import type { WheelNode } from '@shared/types';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
 function CustomNode({ id, data, selected }: NodeProps<WheelNode>) {
   const updateNodeLabel = useWheelStore(s => s.updateNodeLabel);
   const updateNodeDescription = useWheelStore(s => s.updateNodeDescription);
@@ -17,6 +18,8 @@ function CustomNode({ id, data, selected }: NodeProps<WheelNode>) {
   const editingNodeId = useWheelStore(s => s.editingNodeId);
   const setEditingNodeId = useWheelStore(s => s.setEditingNodeId);
   const toggleNodeCollapse = useWheelStore(s => s.toggleNodeCollapse);
+  const castVote = useWheelStore(s => s.castVote);
+  const userId = useWheelStore(s => s.userId);
   const isEditing = editingNodeId === id;
   const [label, setLabel] = useState(data.label);
   const [description, setDescription] = useState(data.description || '');
@@ -76,7 +79,7 @@ function CustomNode({ id, data, selected }: NodeProps<WheelNode>) {
     if (data.description !== description) {
       setDescription(data.description || '');
     }
-  }, [data.description]);
+  }, [data.description, description]);
   // Effect to handle auto-focusing new nodes
   useEffect(() => {
     if (nodeToFocus === id) {
@@ -85,8 +88,10 @@ function CustomNode({ id, data, selected }: NodeProps<WheelNode>) {
     }
   }, [id, nodeToFocus, setNodeToFocus, setEditingNodeId]);
   const nodeColor = data.color || '#6b7280'; // Default to gray
+  const probability = data.probability ?? 0;
+  const userVote = data.votes?.[userId];
   return (
-    <Popover>
+    <>
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
@@ -131,37 +136,80 @@ function CustomNode({ id, data, selected }: NodeProps<WheelNode>) {
             {data.collapsed ? <Plus className="w-4 h-4 text-foreground" /> : <Minus className="w-4 h-4 text-foreground" />}
           </button>
         )}
-        <PopoverTrigger asChild>
-          <button
-            className="absolute -top-2 -left-2 w-6 h-6 bg-background rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform"
-            aria-label="View description"
-          >
-            <Info className="w-4 h-4 text-foreground" />
-          </button>
-        </PopoverTrigger>
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              className="absolute -top-2 -left-2 w-6 h-6 bg-background rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform"
+              aria-label="View description"
+            >
+              <Info className="w-4 h-4 text-foreground" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80" onPointerDownOutside={(e) => e.preventDefault()}>
+            <div className="grid gap-4">
+              <div className="space-y-2">
+                <h4 className="font-medium leading-none">Node Details</h4>
+                <p className="text-sm text-muted-foreground">
+                  Add a detailed description for this consequence.
+                </p>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  onBlur={handleDescriptionBlur}
+                  className="min-h-[100px]"
+                  placeholder="Type your description here."
+                />
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
+        {data.tier > 0 && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                className="absolute top-1/2 -translate-y-1/2 -left-3 w-6 h-6 bg-background rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform"
+                aria-label="Vote on probability"
+              >
+                <Vote className="w-4 h-4 text-foreground" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80" onPointerDownOutside={(e) => e.preventDefault()}>
+              <div className="grid gap-4">
+                <div className="space-y-2">
+                  <h4 className="font-medium leading-none">Probability Score</h4>
+                  <p className="text-sm text-muted-foreground">
+                    How likely is this consequence? (1=Unlikely, 5=Very Likely)
+                  </p>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Average Score:</span>
+                  <span className="text-lg font-bold text-primary">{probability.toFixed(2)}</span>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Your Vote</Label>
+                  <div className="flex justify-between">
+                    {[1, 2, 3, 4, 5].map((voteValue) => (
+                      <Button
+                        key={voteValue}
+                        variant={userVote === voteValue ? 'default' : 'outline'}
+                        size="icon"
+                        onClick={() => castVote(id, voteValue)}
+                      >
+                        {voteValue}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+        )}
       </motion.div>
-      <PopoverContent className="w-80" onPointerDownOutside={(e) => e.preventDefault()}>
-        <div className="grid gap-4">
-          <div className="space-y-2">
-            <h4 className="font-medium leading-none">Node Details</h4>
-            <p className="text-sm text-muted-foreground">
-              Add a detailed description for this consequence.
-            </p>
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              onBlur={handleDescriptionBlur}
-              className="min-h-[100px]"
-              placeholder="Type your description here."
-            />
-          </div>
-        </div>
-      </PopoverContent>
-    </Popover>
+    </>
   );
 }
 export default React.memo(CustomNode);
