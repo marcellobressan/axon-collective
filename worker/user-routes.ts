@@ -37,6 +37,34 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     const created = await WheelEntity.create(c.env, newWheel);
     return ok(c, created);
   });
+  app.post('/api/wheels/create-demo', async (c) => {
+    const { userId } = (await c.req.json()) as { userId?: string };
+    if (!isStr(userId)) return bad(c, 'userId is required');
+    const title = "Demo: Adopting a 4-Day Work Week";
+    const centralNode = { id: '0', type: 'custom', data: { label: title, tier: 0, color: '#4f46e5' }, position: { x: 0, y: 0 } };
+    const n1 = { id: crypto.randomUUID(), type: 'custom', data: { label: 'Improved Employee Well-being', tier: 1, color: '#3b82f6' }, position: { x: 0, y: 0 } };
+    const n2 = { id: crypto.randomUUID(), type: 'custom', data: { label: 'Potential for Higher Productivity', tier: 1, color: '#3b82f6' }, position: { x: 0, y: 0 } };
+    const n3 = { id: crypto.randomUUID(), type: 'custom', data: { label: 'Operational Challenges', tier: 1, color: '#3b82f6' }, position: { x: 0, y: 0 } };
+    const n1_1 = { id: crypto.randomUUID(), type: 'custom', data: { label: 'Lower Burnout & Stress', tier: 2, color: '#0ea5e9' }, position: { x: 0, y: 0 } };
+    const n3_1 = { id: crypto.randomUUID(), type: 'custom', data: { label: 'Coordinating with 5-day clients', tier: 2, color: '#0ea5e9' }, position: { x: 0, y: 0 } };
+    const demoWheel: Wheel = {
+      id: crypto.randomUUID(),
+      title,
+      nodes: [centralNode, n1, n2, n3, n1_1, n3_1],
+      edges: [
+        { id: `e-0-${n1.id}`, source: '0', target: n1.id, type: 'labeled', label: 'Direct Effect' },
+        { id: `e-0-${n2.id}`, source: '0', target: n2.id, type: 'labeled', label: 'Direct Effect' },
+        { id: `e-0-${n3.id}`, source: '0', target: n3.id, type: 'labeled', label: 'Direct Effect' },
+        { id: `e-${n1.id}-${n1_1.id}`, source: n1.id, target: n1_1.id, type: 'labeled', label: 'Result of' },
+        { id: `e-${n3.id}-${n3_1.id}`, source: n3.id, target: n3_1.id, type: 'labeled', label: 'Result of' },
+      ],
+      lastModified: Date.now(),
+      ownerId: userId,
+      visibility: 'private',
+    };
+    const created = await WheelEntity.create(c.env, demoWheel);
+    return ok(c, created);
+  });
   app.get('/api/wheels/:id', async (c) => {
     const { id } = c.req.param();
     const userId = c.req.query('userId');

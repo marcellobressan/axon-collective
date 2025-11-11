@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Plus, MoreVertical, Trash2, Copy, Eye, Lock, Globe } from 'lucide-react';
+import { Plus, MoreVertical, Trash2, Copy, Eye, Lock, Globe, Sparkles } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { formatDistanceToNow } from 'date-fns';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,7 @@ const getUserId = (): string => {
   }
   return userId;
 };
+const FIRST_VISIT_KEY = 'futures-wheel-hub-has-visited';
 export function DashboardPage() {
   const [wheels, setWheels] = useState<Wheel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -43,7 +44,26 @@ export function DashboardPage() {
         setIsLoading(false);
       }
     };
-    fetchWheels();
+    const handleFirstVisit = async () => {
+      const hasVisited = localStorage.getItem(FIRST_VISIT_KEY);
+      if (!hasVisited) {
+        localStorage.setItem(FIRST_VISIT_KEY, 'true');
+        try {
+          const demoWheel = await api<Wheel>('/api/wheels/create-demo', {
+            method: 'POST',
+            body: JSON.stringify({ userId }),
+          });
+          toast.success('Welcome! We added a demo wheel for you to explore.');
+          setWheels(prev => [demoWheel, ...prev].sort((a, b) => (b.lastModified ?? 0) - (a.lastModified ?? 0)));
+        } catch (error) {
+          console.error('Failed to create demo wheel:', error);
+          toast.error('Could not create a demo wheel for you.');
+        }
+      }
+    };
+    fetchWheels().then(() => {
+      handleFirstVisit();
+    });
   }, [userId]);
   const handleCreateWheel = async () => {
     if (!newWheelTitle.trim()) {
@@ -164,9 +184,22 @@ export function DashboardPage() {
             ))}
           </div>
         ) : (
-          <div className="text-center py-16 border-2 border-dashed rounded-lg">
-            <h2 className="text-xl font-semibold">No wheels yet!</h2>
-            <p className="text-muted-foreground mt-2">Click "New Wheel" to start your first exploration.</p>
+          <div className="text-center py-16 bg-background rounded-lg shadow-sm border border-dashed">
+            <div className="flex justify-center mb-4">
+              <div className="w-16 h-16 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center">
+                <Sparkles className="w-8 h-8 text-indigo-500" />
+              </div>
+            </div>
+            <h2 className="text-2xl font-semibold">Start Your First Exploration</h2>
+            <p className="text-muted-foreground mt-2 max-w-md mx-auto">
+              Futures wheels help you map the consequences of an idea. Click the button below to create one.
+            </p>
+            <div className="mt-6">
+              <Button size="lg" onClick={() => setIsDialogOpen(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Create Your First Wheel
+              </Button>
+            </div>
           </div>
         )}
       </main>
