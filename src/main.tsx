@@ -16,6 +16,7 @@ import { WheelPage } from '@/pages/WheelPage';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { LoginPage } from '@/pages/LoginPage';
 import { RegisterPage } from '@/pages/RegisterPage';
+import { AccountPage } from '@/pages/AccountPage';
 const router = createBrowserRouter([
   {
     path: "/",
@@ -46,6 +47,15 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <WheelPage />
+      </ProtectedRoute>
+    ),
+    errorElement: <RouteErrorBoundary />,
+  },
+  {
+    path: "/account",
+    element: (
+      <ProtectedRoute>
+        <AccountPage />
       </ProtectedRoute>
     ),
     errorElement: <RouteErrorBoundary />,

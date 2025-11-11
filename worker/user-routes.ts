@@ -39,6 +39,49 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     const { password: _, ...userToReturn } = user;
     return ok(c, userToReturn);
   });
+  // USERS
+  app.get('/api/users', async (c) => {
+    const cq = c.req.query('cursor');
+    const lq = c.req.query('limit');
+    const page = await UserEntity.list(c.env, cq ?? null, lq ? Math.max(1, (Number(lq) | 0)) : undefined);
+    // Strip passwords before returning
+    page.items = page.items.map(u => {
+      const { password, ...user } = u;
+      return user;
+    });
+    return ok(c, page);
+  });
+  app.put('/api/users/:id', async (c) => {
+    const { id } = c.req.param();
+    const { userId, name, password } = (await c.req.json()) as { userId?: string; name?: string; password?: string };
+    if (!isStr(userId)) {
+      return bad(c, 'A userId is required for authorization.');
+    }
+    if (id !== userId) {
+      return c.json({ success: false, error: 'Forbidden' }, 403);
+    }
+    const userEntity = new UserEntity(c.env, id);
+    if (!(await userEntity.exists())) {
+      return notFound(c, 'User not found');
+    }
+    const dataToUpdate: Partial<User> = {};
+    if (isStr(name)) {
+      dataToUpdate.name = name;
+    }
+    if (isStr(password)) {
+      if (password.length < 6) {
+        return bad(c, 'Password must be at least 6 characters long.');
+      }
+      dataToUpdate.password = password; // In a real app, hash this!
+    }
+    if (Object.keys(dataToUpdate).length === 0) {
+      return bad(c, 'No updateable fields provided.');
+    }
+    await userEntity.patch(dataToUpdate);
+    const updatedUser = await userEntity.getState();
+    const { password: _, ...userToReturn } = updatedUser;
+    return ok(c, userToReturn);
+  });
   // WHEELS
   app.get('/api/wheels', async (c) => {
     const userId = c.req.query('userId');
@@ -180,17 +223,5 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       return notFound(c, 'Node not found in wheel');
     }
     return ok(c, updatedNode);
-  });
-  // USERS (now mainly for admin/debug, registration is the primary creation method)
-  app.get('/api/users', async (c) => {
-    const cq = c.req.query('cursor');
-    const lq = c.req.query('limit');
-    const page = await UserEntity.list(c.env, cq ?? null, lq ? Math.max(1, (Number(lq) | 0)) : undefined);
-    // Strip passwords before returning
-    page.items = page.items.map(u => {
-      const { password, ...user } = u;
-      return user;
-    });
-    return ok(c, page);
   });
 }
