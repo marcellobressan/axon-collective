@@ -85,7 +85,8 @@ function runSetupCommands() {
     "bun install html-to-image",
     "bun add @xyflow/react@^11.11.0",
     "bun remove react-flow",
-    "bun add reactflow@^11.11.0"
+    "bun add reactflow@^11.11.0",
+    "bun add jspdf html2canvas"
 ];
     
     if (commands.length === 0) {
