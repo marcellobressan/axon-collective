@@ -55,6 +55,8 @@ export interface Wheel {
   nodes: StoredNode[];
   edges: StoredEdge[];
   lastModified?: number;
+  ownerId: string;
+  visibility: 'public' | 'private';
 }
 // Frontend-specific types that extend the stored types
 export type WheelNode = Node<WheelNodeData, 'custom'>;

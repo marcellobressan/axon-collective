@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, BrainCircuit, Trash2 } from 'lucide-react';
+import { Plus, BrainCircuit, Trash2, MoreVertical, Globe, Lock, Copy } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { v4 as uuidv4 } from 'uuid';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -30,6 +31,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -37,6 +45,14 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { Toaster, toast } from 'sonner';
 import { api } from '@/lib/api-client';
 import type { Wheel } from '@shared/types';
+const getUserId = (): string => {
+  let userId = localStorage.getItem('futures-wheel-hub-user-id');
+  if (!userId) {
+    userId = uuidv4();
+    localStorage.setItem('futures-wheel-hub-user-id', userId);
+  }
+  return userId;
+};
 export function HomePage() {
   const [wheels, setWheels] = useState<Wheel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -45,11 +61,12 @@ export function HomePage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [wheelToDelete, setWheelToDelete] = useState<Wheel | null>(null);
   const navigate = useNavigate();
+  const userId = useMemo(() => getUserId(), []);
   useEffect(() => {
     const fetchWheels = async () => {
       try {
         setIsLoading(true);
-        const data = await api<Wheel[]>('/api/wheels');
+        const data = await api<Wheel[]>(`/api/wheels?userId=${userId}`);
         setWheels(data.sort((a, b) => (b.lastModified || 0) - (a.lastModified || 0)));
       } catch (error) {
         console.error('Failed to fetch wheels:', error);
@@ -59,7 +76,7 @@ export function HomePage() {
       }
     };
     fetchWheels();
-  }, []);
+  }, [userId]);
   const handleCreateWheel = async () => {
     if (!newWheelTitle.trim()) {
       toast.warning('Please enter a title for your new wheel.');
@@ -68,7 +85,7 @@ export function HomePage() {
     try {
       const newWheel = await api<Wheel>('/api/wheels', {
         method: 'POST',
-        body: JSON.stringify({ title: newWheelTitle.trim() }),
+        body: JSON.stringify({ title: newWheelTitle.trim(), ownerId: userId }),
       });
       toast.success(`Wheel "${newWheel.title}" created!`);
       setWheels((prev) => [newWheel, ...prev]);
@@ -87,7 +104,7 @@ export function HomePage() {
   const handleDeleteWheel = async () => {
     if (!wheelToDelete) return;
     try {
-      await api(`/api/wheels/${wheelToDelete.id}`, { method: 'DELETE' });
+      await api(`/api/wheels/${wheelToDelete.id}?userId=${userId}`, { method: 'DELETE' });
       toast.success(`Wheel "${wheelToDelete.title}" has been deleted.`);
       setWheels(wheels.filter(w => w.id !== wheelToDelete.id));
     } catch (error) {
@@ -97,6 +114,29 @@ export function HomePage() {
       setIsDeleteDialogOpen(false);
       setWheelToDelete(null);
     }
+  };
+  const handleVisibilityChange = async (wheel: Wheel, visibility: 'public' | 'private') => {
+    try {
+      const updatedWheel = await api<Wheel>(`/api/wheels/${wheel.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ userId, visibility }),
+      });
+      setWheels(wheels.map(w => w.id === wheel.id ? updatedWheel : w));
+      toast.success(`Wheel is now ${visibility}.`);
+    } catch (error) {
+      console.error('Failed to update visibility:', error);
+      toast.error('Failed to update visibility.');
+    }
+  };
+  const handleCopyLink = (wheel: Wheel) => {
+    if (wheel.visibility === 'private') {
+      toast.error('Cannot share a private wheel. Make it public first.');
+      return;
+    }
+    const url = `${window.location.origin}/wheel/${wheel.id}`;
+    navigator.clipboard.writeText(url).then(() => {
+      toast.success('Public link copied to clipboard!');
+    });
   };
   return (
     <div className="min-h-screen bg-background">
@@ -171,7 +211,13 @@ export function HomePage() {
                 <Card key={wheel.id} className="flex flex-col justify-between hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
                   <Link to={`/wheel/${wheel.id}`} className="flex-grow flex flex-col">
                     <CardHeader className="flex-grow">
-                      <CardTitle className="truncate">{wheel.title}</CardTitle>
+                      <div className="flex justify-between items-start">
+                        <CardTitle className="truncate pr-2">{wheel.title}</CardTitle>
+                        <Badge variant={wheel.visibility === 'public' ? 'outline' : 'secondary'}>
+                          {wheel.visibility === 'public' ? <Globe className="w-3 h-3 mr-1" /> : <Lock className="w-3 h-3 mr-1" />}
+                          {wheel.visibility.charAt(0).toUpperCase() + wheel.visibility.slice(1)}
+                        </Badge>
+                      </div>
                       <CardDescription>
                         {wheel.nodes.length} nodes, {wheel.edges.length} connections
                       </CardDescription>
@@ -182,11 +228,31 @@ export function HomePage() {
                       </p>
                     </CardContent>
                   </Link>
-                  <CardFooter className="p-4 border-t mt-auto">
-                    <span className="text-xs text-muted-foreground">Click card to open</span>
-                    <Button variant="ghost" size="icon" className="ml-auto text-muted-foreground hover:text-destructive" onClick={(e) => { e.preventDefault(); confirmDelete(wheel); }}>
+                  <CardFooter className="p-4 border-t mt-auto flex justify-between items-center">
+                    <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={(e) => { e.preventDefault(); confirmDelete(wheel); }}>
                       <Trash2 className="w-4 h-4" />
                     </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onSelect={() => handleCopyLink(wheel)} disabled={wheel.visibility === 'private'}>
+                          <Copy className="w-4 h-4 mr-2" /> Copy Public Link
+                        </DropdownMenuItem>
+                        {wheel.visibility === 'private' ? (
+                          <DropdownMenuItem onSelect={() => handleVisibilityChange(wheel, 'public')}>
+                            <Globe className="w-4 h-4 mr-2" /> Make Public
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem onSelect={() => handleVisibilityChange(wheel, 'private')}>
+                            <Lock className="w-4 h-4 mr-2" /> Make Private
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </CardFooter>
                 </Card>
               ))}

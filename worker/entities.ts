@@ -36,5 +36,5 @@ export class ChatBoardEntity extends IndexedEntity<ChatBoardState> {
 export class WheelEntity extends IndexedEntity<Wheel> {
   static readonly entityName = "wheel";
   static readonly indexName = "wheels";
-  static readonly initialState: Wheel = { id: "", title: "", nodes: [], edges: [] };
+  static readonly initialState: Wheel = { id: "", title: "", nodes: [], edges: [], ownerId: "", visibility: "private" };
 }

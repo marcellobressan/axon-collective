@@ -7,12 +7,19 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
   app.get('/api/test', (c) => c.json({ success: true, data: { name: 'CF Workers Demo' }}));
   // WHEELS
   app.get('/api/wheels', async (c) => {
-    const page = await WheelEntity.list(c.env);
-    return ok(c, page.items);
+    const userId = c.req.query('userId');
+    const { items } = await WheelEntity.list(c.env);
+    if (userId) {
+      const userWheels = items.filter(w => w.ownerId === userId);
+      return ok(c, userWheels);
+    }
+    const publicWheels = items.filter(w => w.visibility === 'public');
+    return ok(c, publicWheels);
   });
   app.post('/api/wheels', async (c) => {
-    const { title } = (await c.req.json()) as { title?: string };
+    const { title, ownerId } = (await c.req.json()) as { title?: string, ownerId?: string };
     if (!isStr(title)) return bad(c, 'title is required');
+    if (!isStr(ownerId)) return bad(c, 'ownerId is required');
     const centralNode = {
       id: '0',
       type: 'custom',
@@ -25,27 +32,60 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       nodes: [centralNode],
       edges: [],
       lastModified: Date.now(),
+      ownerId,
+      visibility: 'private',
     };
     const created = await WheelEntity.create(c.env, newWheel);
     return ok(c, created);
   });
   app.get('/api/wheels/:id', async (c) => {
     const { id } = c.req.param();
-    const wheel = new WheelEntity(c.env, id);
-    if (!(await wheel.exists())) return notFound(c, 'Wheel not found');
-    return ok(c, await wheel.getState());
+    const userId = c.req.query('userId');
+    const wheelEntity = new WheelEntity(c.env, id);
+    if (!(await wheelEntity.exists())) return notFound(c, 'Wheel not found');
+    const wheel = await wheelEntity.getState();
+    if (wheel.visibility === 'public' || (userId && wheel.ownerId === userId)) {
+      return ok(c, wheel);
+    }
+    return notFound(c, 'Wheel not found or access denied');
   });
   app.put('/api/wheels/:id', async (c) => {
     const { id } = c.req.param();
-    const wheelData = (await c.req.json()) as Partial<Wheel>;
+    const { userId, ...wheelData } = (await c.req.json()) as Partial<Wheel> & { userId?: string };
     const wheel = new WheelEntity(c.env, id);
     if (!(await wheel.exists())) return notFound(c, 'Wheel not found');
+    const currentWheel = await wheel.getState();
+    if (currentWheel.ownerId !== userId) {
+      return c.json({ success: false, error: 'Forbidden' }, 403);
+    }
     const dataToPatch = { ...wheelData, lastModified: Date.now() };
     await wheel.patch(dataToPatch);
     return ok(c, await wheel.getState());
   });
+  app.patch('/api/wheels/:id', async (c) => {
+    const { id } = c.req.param();
+    const { userId, visibility } = (await c.req.json()) as { userId?: string, visibility?: 'public' | 'private' };
+    if (!userId) return bad(c, 'userId is required');
+    if (visibility !== 'public' && visibility !== 'private') return bad(c, 'Invalid visibility value');
+    const wheel = new WheelEntity(c.env, id);
+    if (!(await wheel.exists())) return notFound(c, 'Wheel not found');
+    const currentWheel = await wheel.getState();
+    if (currentWheel.ownerId !== userId) {
+      return c.json({ success: false, error: 'Forbidden' }, 403);
+    }
+    await wheel.patch({ visibility, lastModified: Date.now() });
+    return ok(c, await wheel.getState());
+  });
   app.delete('/api/wheels/:id', async (c) => {
     const { id } = c.req.param();
+    const userId = c.req.query('userId');
+    if (!userId) return bad(c, 'userId is required for deletion');
+    const wheel = new WheelEntity(c.env, id);
+    if (!(await wheel.exists())) return notFound(c, 'Wheel not found');
+    const currentWheel = await wheel.getState();
+    if (currentWheel.ownerId !== userId) {
+      return c.json({ success: false, error: 'Forbidden' }, 403);
+    }
     const deleted = await WheelEntity.delete(c.env, id);
     if (!deleted) return notFound(c, 'Wheel not found');
     return ok(c, { id, deleted });
@@ -62,8 +102,6 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     await wheel.mutate(s => {
       const node = s.nodes.find(n => n.id === nodeId);
       if (!node) {
-        // This won't be sent to the client, but will stop the mutation.
-        // The notFound check below handles the client response.
         throw new Error('Node not found');
       }
       if (!node.data.votes) {

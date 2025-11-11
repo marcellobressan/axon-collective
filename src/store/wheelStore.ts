@@ -11,10 +11,10 @@ type HistoryState = {
   edges: WheelEdge[];
 };
 const getUserId = (): string => {
-  let userId = localStorage.getItem('axon-user-id');
+  let userId = localStorage.getItem('futures-wheel-hub-user-id');
   if (!userId) {
     userId = uuidv4();
-    localStorage.setItem('axon-user-id', userId);
+    localStorage.setItem('futures-wheel-hub-user-id', userId);
   }
   return userId;
 };
@@ -31,6 +31,8 @@ export type RFState = {
   editingNodeId: string | null;
   past: HistoryState[];
   future: HistoryState[];
+  ownerId: string | null;
+  visibility: 'public' | 'private';
   fetchWheel: (id: string) => Promise<void>;
   setNodes: (nodes: WheelNode[]) => void;
   setEdges: (edges: WheelEdge[]) => void;
@@ -50,6 +52,7 @@ export type RFState = {
   setEditingNodeId: (nodeId: string | null) => void;
   toggleNodeCollapse: (nodeId: string) => void;
   castVote: (nodeId: string, vote: number) => Promise<void>;
+  updateWheelVisibility: (visibility: 'public' | 'private') => Promise<void>;
   undo: () => void;
   redo: () => void;
 };
@@ -75,7 +78,10 @@ const useWheelStore = create<RFState>()(
       editingNodeId: null,
       past: [],
       future: [],
+      ownerId: null,
+      visibility: 'private',
       fetchWheel: async (id) => {
+        const { userId } = get();
         const isInitialLoad = get().wheelId !== id || get().nodes.length === 0;
         if (isInitialLoad) {
           set({ isLoading: true, error: null, wheelId: id, past: [], future: [] });
@@ -83,7 +89,7 @@ const useWheelStore = create<RFState>()(
           set({ error: null });
         }
         try {
-          const remoteWheel = await api<Wheel>(`/api/wheels/${id}`);
+          const remoteWheel = await api<Wheel>(`/api/wheels/${id}?userId=${userId}`);
           if (isInitialLoad) {
             const layoutResult = radialLayout(remoteWheel.nodes as WheelNode[], remoteWheel.edges);
             set({
@@ -92,10 +98,14 @@ const useWheelStore = create<RFState>()(
               edges: layoutResult.edges,
               isLoading: false,
               wheelId: id,
+              ownerId: remoteWheel.ownerId,
+              visibility: remoteWheel.visibility,
             });
           } else {
             set(state => {
               state.title = remoteWheel.title;
+              state.ownerId = remoteWheel.ownerId;
+              state.visibility = remoteWheel.visibility;
               const localNodesById = new Map(state.nodes.map(n => [n.id, n]));
               const remoteNodesById = new Map(remoteWheel.nodes.map(n => [n.id, n]));
               for (const remoteNode of remoteWheel.nodes) {
@@ -251,7 +261,6 @@ const useWheelStore = create<RFState>()(
           state.nodes.forEach(node => {
             if (descendants.has(node.id)) {
               node.hidden = isCollapsing;
-              // When expanding, ensure children of a collapsed child remain hidden
               if (!isCollapsing && node.data.collapsed) {
                 const childDescendants = getDescendants(node.id);
                 childDescendants.forEach(descId => {
@@ -276,7 +285,6 @@ const useWheelStore = create<RFState>()(
       castVote: async (nodeId, vote) => {
         const { wheelId, userId } = get();
         if (!wheelId) return;
-        // Optimistic update
         set(state => {
           const node = state.nodes.find(n => n.id === nodeId);
           if (node) {
@@ -291,7 +299,6 @@ const useWheelStore = create<RFState>()(
             method: 'POST',
             body: JSON.stringify({ userId, vote }),
           });
-          // Re-sync with server state
           set(state => {
             const node = state.nodes.find(n => n.id === nodeId);
             if (node) {
@@ -300,11 +307,10 @@ const useWheelStore = create<RFState>()(
           });
         } catch (error) {
           console.error('Failed to cast vote:', error);
-          // Here you might want to revert the optimistic update or show an error toast
         }
       },
       saveWheel: async () => {
-        const { wheelId, title, nodes, edges } = get();
+        const { wheelId, title, nodes, edges, userId } = get();
         if (!wheelId) return;
         try {
           const nodesToSave = nodes.map(({ id, position, data, type, width, height, hidden }) => ({
@@ -315,10 +321,26 @@ const useWheelStore = create<RFState>()(
           }));
           await api(`/api/wheels/${wheelId}`, {
             method: 'PUT',
-            body: JSON.stringify({ title, nodes: nodesToSave, edges: edgesToSave }),
+            body: JSON.stringify({ title, nodes: nodesToSave, edges: edgesToSave, userId }),
           });
         } catch (error) {
           console.error('Failed to save wheel:', error);
+          throw error;
+        }
+      },
+      updateWheelVisibility: async (visibility) => {
+        const { wheelId, userId } = get();
+        if (!wheelId) return;
+        const previousVisibility = get().visibility;
+        set({ visibility }); // Optimistic update
+        try {
+          await api(`/api/wheels/${wheelId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ userId, visibility }),
+          });
+        } catch (error) {
+          console.error('Failed to update visibility:', error);
+          set({ visibility: previousVisibility }); // Revert on error
           throw error;
         }
       },
