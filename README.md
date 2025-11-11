@@ -1,6 +1,6 @@
 # Futures Wheel Hub
 A visually stunning, real-time collaborative tool for futures wheel brainstorming and strategic foresight.
-[cloudflarebutton]
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/marcellobressan/axon-collective)
 ## About The Project
 Futures Wheel Hub is a real-time collaborative web application for futures wheel thinking. It allows teams to brainstorm and map the direct and indirect consequences of a particular idea, event, or trend.
 Users start with a central concept and collaboratively build out a radial mind map of first, second, and third-order impacts. The application is designed to be intuitive, fluid, and aesthetically pleasing, fostering creativity and deep strategic thinking. The core experience revolves around an infinite canvas where ideas, represented as nodes, can be created, linked, and organized in real-time, with all changes seamlessly persisted and shared among participants.
@@ -68,6 +68,6 @@ This project is designed for easy deployment to the Cloudflare global network.
     bun run deploy
     ```
 Alternatively, you can deploy directly from your GitHub repository with a single click.
-[cloudflarebutton]
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/marcellobressan/axon-collective)
 ## License
 Distributed under the MIT License. See `LICENSE` for more information.
